@@ -1,0 +1,17 @@
+{
+  "name": "edith-daemon",
+  "version": "0.1.0",
+  "description": "Life support daemon for Edith — a persistent autonomous AI entity",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/daemon.ts",
+    "wake": "bun run src/wake.ts",
+    "status": "bun run src/status.ts",
+    "index": "bun run src/build-index.ts",
+    "transcript": "bun run src/transcript.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.3.10"
+  }
+}

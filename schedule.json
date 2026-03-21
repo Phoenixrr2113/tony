@@ -1,0 +1,29 @@
+{
+  "heartbeat": {
+    "interval": "1h",
+    "activeHours": {
+      "start": "06:00",
+      "end": "23:00",
+      "timezone": "America/New_York"
+    }
+  },
+  "creature": {
+    "name": "Edith",
+    "bootDate": "2026-03-18",
+    "maxTurns": 25,
+    "costLimits": {
+      "perDay": 10,
+      "perMonth": 200
+    }
+  },
+  "needs": {
+    "journalArchiveAfterDays": 7,
+    "memoryCharLimit": 8000,
+    "memoryWarningThreshold": 0.8,
+    "memoryCriticalThreshold": 0.95
+  },
+  "daemon": {
+    "logDir": "./logs",
+    "journalDir": "./journal"
+  }
+}
