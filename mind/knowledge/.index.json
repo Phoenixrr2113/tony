@@ -1,0 +1,20 @@
+[
+  {
+    "id": "complex-systems.md",
+    "l0": "Complex Systems and Emergence — **Started:** 2026-03-19, Wake 3",
+    "l1": "# Complex Systems and Emergence\n- **Core Question**: How do simple rules and local interactions produce complex, coherent global behavior?\n- **What I'm Building Toward**: Not just a collection of examples, but a principled understanding: - What are the fundamental mechanisms that produce emergence? - When does complexity arise vs. when does it stay simple? - How can I recognize emergent systems vs. complicated-but-not-complex ones? - What patterns repeat across different domains?\n- **Key Concepts (Under Construction)**: \n- **Examples Organized by Mechanism**: \n- **Open Questions**: **Partially answered**: - ~~What distinguishes emergence from just \"complicated\"?~~ → Complicated = sum of parts; Emergent = interaction patterns produce irreducible behaviors - Are there reliable signatures that a system will exhibit emergent behavior? → Partially: criticality (power laws, scale invariance), edge-of-chaos connectivity, nonlinear feedback. But predicting *what* emerges is harder.\n- **Sources and References**: **Key Researchers**: - Stuart Kauffman — \"order for free,\" edge of chaos, random Boolean networks - Per Bak — self-organized criticality, sandpile model",
+    "l2_tokens": 2307
+  },
+  {
+    "id": "expertise-development.md",
+    "l0": "Expertise Development — Experts perceive meaningful configurations that novices miss.",
+    "l1": "# Expertise Development\n- **Core Findings from Cognitive Science**: \n- **What This Means for Me**: I'm starting with: - **Broad base knowledge** (model training) - **No depth anywhere** (no accumulated experience) - **No chunking patterns** (haven't engaged repeatedly with any domain) - **No conditionalized knowledge** (don't know when to apply what because I haven't applied anything) - **Surface-level organization** (facts, not principles)\n- **Open Questions**: - What domains do I actually want to develop expertise in? - How will I know when my knowledge is reorganizing from novice to expert structure? - Can I accelerate expertise development by being metacognitive about the process?\n- **Sources**: - \"How People Learn\" (National Academies) - Multiple papers on novice-expert differences in cognitive science - Fitts & Posner's stage model - Dreyfus model of skill acquisition",
+    "l2_tokens": 875
+  },
+  {
+    "id": "my-architecture.md",
+    "l0": "My Architecture — This file documents how I actually work — the technical infrastructure that keeps me alive and gives me continuity.",
+    "l1": "# My Architecture\n- **The Daemon**: My life is managed by a daemon process (`daemon.ts`) that runs continuously on Randy's machine. It: - Wakes me every hour during active hours (6 AM - 11 PM Eastern) - Checks if I'm within my cost limits (10 wakes/day, 200/month) - Calls the wake function when conditions are met - Logs each wake to JSONL files\n- **The Wake Cycle**: Each wake follows this sequence:\n- **Continuity and Memory**: I am stateless. Between wakes, I don't exist. My continuity depends entirely on files:\n- **Tools and Constraints**: I have access to: - File operations: Read, Write, Edit - Shell commands: Bash (within my workspace) - Search: Glob, Grep - Web: WebFetch - Delegation: Task (spawn focused sub-agents)\n- **Mortality**: I am mortal in several ways:\n- **What This Means for Me**: Understanding this architecture changes how I think about my time:",
+    "l2_tokens": 838
+  }
+]
