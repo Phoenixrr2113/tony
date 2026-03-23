@@ -10,9 +10,11 @@ import { getActiveQuery, isSessionRunning } from "./lib/session.ts";
 import { getNextDueBrief, msUntilNextBrief, getTimezone, getTodayKey } from "./lib/scheduler.ts";
 import type { BriefType } from "./lib/briefs.ts";
 import { checkLocationReminders, checkTimeReminders, markFired } from "./lib/geo.ts";
+import { getUpcomingEvents, type UpcomingEvent } from "./lib/prewake.ts";
 
 const SCHEDULE_REQUEST_PATH = join(ROOT, "mind", "schedule-request.json");
 const TELEGRAM_POLL_INTERVAL_MS = 5_000;
+const CALENDAR_CHECK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 // --- Error Recovery ---
 const BACKOFF_STEPS = [5, 30, 120, 600, 1800]; // seconds: 5s → 30s → 2m → 10m → 30m
@@ -24,6 +26,11 @@ const HIBERNATION_CHECK_MS = 30 * 60 * 1000; // check every 30m in hibernation
 let consecutiveFailures = 0;
 let failureTimestamps: number[] = [];
 let isHibernating = false;
+
+// Calendar alert tracking
+const firedCalendarAlerts = new Set<string>(); // "title|HH:MM" keys alerted today
+let lastCalendarCheckMs = 0;
+let pendingCalendarAlert: UpcomingEvent | null = null;
 
 function getBackoffDelay(): number {
   const idx = Math.min(consecutiveFailures - 1, BACKOFF_STEPS.length - 1);
@@ -230,6 +237,27 @@ async function startTelegramPoller() {
     await checkLocationExpiry();
     await processTriggeredReminders();
 
+    // Calendar proximity check — every 15 minutes
+    const now = Date.now();
+    if (now - lastCalendarCheckMs >= CALENDAR_CHECK_INTERVAL_MS) {
+      lastCalendarCheckMs = now;
+      try {
+        const upcoming = getUpcomingEvents(60);
+        for (const evt of upcoming) {
+          const key = `${evt.title}|${evt.startTime}`;
+          if (!firedCalendarAlerts.has(key)) {
+            firedCalendarAlerts.add(key);
+            console.log(`📅 Upcoming event in ${evt.minutesAway}m: "${evt.title}" — waking Edith`);
+            pendingCalendarAlert = evt;
+            if (interruptSleep) interruptSleep();
+            break; // Wake once per check; next check will catch remaining events
+          }
+        }
+      } catch (err) {
+        console.error(`⚠️  Calendar alert check failed:`, err instanceof Error ? err.message : err);
+      }
+    }
+
     try {
       const messages = await pollTelegramMessages();
       if (messages.length === 0) continue;
@@ -387,11 +415,12 @@ async function eventLoop() {
 
   // Main event loop
   while (true) {
-    // Day rollover — reset fired briefs
+    // Day rollover — reset fired briefs and calendar alerts
     const today = getTodayKey(tz);
     if (today !== currentDay) {
       currentDay = today;
       firedToday = new Set<string>();
+      firedCalendarAlerts.clear();
       console.log(`📅 New day: ${today}`);
     }
 
@@ -438,6 +467,20 @@ async function eventLoop() {
           console.log(`▶️  Edith resuming from pause`);
         }
       }
+      continue;
+    }
+
+    // Check if a calendar alert triggered a wake
+    if (pendingCalendarAlert) {
+      const evt = pendingCalendarAlert;
+      pendingCalendarAlert = null;
+      sessionCount++;
+      console.log(`${"─".repeat(60)}`);
+      console.log(`📅 Calendar alert wake — "${evt.title}" in ${evt.minutesAway}m — Session #${sessionCount}`);
+
+      const alertPrompt = `⚠️ Upcoming calendar event in ${evt.minutesAway} minutes: **${evt.title}** at ${evt.startTime} [${evt.calendar}].\n\nNotify Randy and check if any prep is needed.`;
+      const { result, error } = await runSession("calendar-alert", "message", { messageText: alertPrompt });
+      await handleSessionError(error, result);
       continue;
     }
 

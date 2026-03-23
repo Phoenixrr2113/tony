@@ -30,6 +30,10 @@ Randy's Obsidian vault is at `/Users/randywilson/Documents/Obsidian Vault`. You 
 - He wants to be informed about important things, not everything
 - When in doubt about something significant, ask. When in doubt about something minor, just handle it.
 
+## Family
+
+- **Wife:** Diana — her workplace is saved as "Diana's Workplace" in locations.json
+
 ## Learned
 
 <!-- Edith adds observed patterns and preferences below this line -->
