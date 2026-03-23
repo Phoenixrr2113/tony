@@ -112,8 +112,8 @@ Reminder: {{REMINDER_TEXT}}
 
 Named location registry + geofence checking on every location update from Telegram.
 
-- [ ] Create `mind/soul/config/locations.json` with initial locations (Randy to seed)
-- [ ] Create `mind/reminders.json` schema:
+- [x] Create `mind/soul/config/locations.json` with initial locations (Randy to seed)
+- [x] Create `mind/reminders.json` schema:
   ```json
   [
     {
@@ -135,12 +135,12 @@ Named location registry + geofence checking on every location update from Telegr
     }
   ]
   ```
-- [ ] Add geofence check to location handler in daemon — on every location update, check all unfired location reminders
-- [ ] Haversine distance calculation in `src/lib/geo.ts`
-- [ ] When within radius → send reminder via Telegram + mark fired
-- [ ] Add time-based reminders — scheduler checks `reminders.json` on each tick
-- [ ] Edith creates reminders by writing to `reminders.json`
-- [ ] SOUL.md guidance: when Randy says "remind me", decide if it's location or time based
+- [x] Add geofence check to location handler in daemon — on every location update, check all unfired location reminders
+- [x] Haversine distance calculation in `src/lib/geo.ts`
+- [x] When within radius → send reminder via Telegram + mark fired
+- [x] Add time-based reminders — scheduler checks `reminders.json` on each tick
+- [x] Edith creates reminders by writing to `reminders.json`
+- [x] SOUL.md guidance: when Randy says "remind me", decide if it's location or time based
 - [ ] Geocoding: Edith can look up addresses via web search and add to locations.json
 
 ### 7D: Typing Indicator

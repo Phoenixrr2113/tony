@@ -9,6 +9,7 @@ import { writeMessagesToInbox } from "./lib/messaging.ts";
 import { getActiveQuery, isSessionRunning } from "./lib/session.ts";
 import { getNextDueBrief, msUntilNextBrief, getTimezone, getTodayKey } from "./lib/scheduler.ts";
 import type { BriefType } from "./lib/briefs.ts";
+import { checkLocationReminders, checkTimeReminders, markFired } from "./lib/geo.ts";
 
 const SCHEDULE_REQUEST_PATH = join(ROOT, "mind", "schedule-request.json");
 const TELEGRAM_POLL_INTERVAL_MS = 5_000;
@@ -137,6 +138,34 @@ function isWakeUpMessage(text: string): boolean {
 // --- Location expiry tracking ---
 let locationExpiryWarned = false;
 
+/**
+ * Process any triggered location or time reminders.
+ * Sends them via Telegram and marks as fired.
+ */
+async function processTriggeredReminders(): Promise<void> {
+  // Location reminders
+  const locTriggered = checkLocationReminders();
+  for (const { reminder, locationLabel } of locTriggered) {
+    const msg = `📍 *Reminder* (near ${locationLabel})\n\n${reminder.text}`;
+    await sendTelegramMessage(msg);
+    console.log(`📍 Location reminder fired: "${reminder.text}" (near ${locationLabel})`);
+  }
+  if (locTriggered.length > 0) {
+    markFired(locTriggered.map(t => t.reminder.id));
+  }
+
+  // Time reminders
+  const timeTriggered = checkTimeReminders();
+  for (const reminder of timeTriggered) {
+    const msg = `⏰ *Reminder*\n\n${reminder.text}`;
+    await sendTelegramMessage(msg);
+    console.log(`⏰ Time reminder fired: "${reminder.text}"`);
+  }
+  if (timeTriggered.length > 0) {
+    markFired(timeTriggered.map(r => r.id));
+  }
+}
+
 async function checkLocationExpiry(): Promise<void> {
   if (!existsSync(LOCATION_PATH)) return;
   try {
@@ -199,6 +228,7 @@ async function startTelegramPoller() {
     await Bun.sleep(TELEGRAM_POLL_INTERVAL_MS);
 
     await checkLocationExpiry();
+    await processTriggeredReminders();
 
     try {
       const messages = await pollTelegramMessages();
