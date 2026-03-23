@@ -3,4 +3,5 @@ bun.lock
 logs/
 .tmp-system-prompt
 .env
+PLAN.md
 

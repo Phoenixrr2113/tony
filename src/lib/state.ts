@@ -7,7 +7,7 @@ export function computeState(): string {
   const schedule = getSchedule();
   const lines: string[] = [];
 
-  const tz = schedule.heartbeat?.activeHours?.timezone ?? "America/New_York";
+  const tz = schedule.watchdog?.activeHours?.timezone ?? schedule.heartbeat?.activeHours?.timezone ?? "America/New_York";
   const localTime = new Date().toLocaleString("en-US", {
     timeZone: tz,
     hour: "2-digit",
@@ -37,16 +37,20 @@ export function computeState(): string {
   const todayWakes = getTodayWakeCount();
   lines.push(`Wakes: ${todayWakes} today, ${totalWakes} lifetime`);
 
-  lines.push(`Wake interval: ${schedule.heartbeat?.interval ?? "unknown"}`);
+  lines.push(`Mode: continuous (watchdog)`);
+  lines.push(`Idle timeout: ${schedule.watchdog?.idleTimeoutSeconds ?? 300}s`);
 
   const hasInbox = existsSync(INBOX_PATH) && readFileSync(INBOX_PATH, "utf-8").trim().length > 0;
   const hasOutbox = existsSync(OUTBOX_PATH) && readFileSync(OUTBOX_PATH, "utf-8").trim().length > 0;
   if (hasInbox) lines.push(`Inbox: message from Randy waiting`);
   if (hasOutbox) lines.push(`Outbox: unsent message to Randy`);
 
+  const battery = getBatteryStatus();
+  if (battery) lines.push(`Battery: ${battery}`);
+
   const lastLog = getLastWakeLog();
   if (lastLog) {
-    const maxTurns = schedule.creature?.maxTurns ?? 25;
+    const maxTurns = schedule.creature?.maxTurns ?? 100;
     const parts: string[] = [];
     if (lastLog.durationSeconds !== undefined) parts.push(`${lastLog.durationSeconds}s`);
     if (lastLog.turns !== undefined) parts.push(`${lastLog.turns}/${maxTurns} turns`);
@@ -84,6 +88,23 @@ function getTotalLifetimeWakes(): number {
     if (content) total += content.split("\n").filter(Boolean).length;
   }
   return total;
+}
+
+function getBatteryStatus(): string | null {
+  try {
+    const result = Bun.spawnSync(["pmset", "-g", "batt"]);
+    const output = result.stdout.toString().trim();
+    const match = output.match(/(\d+)%;\s*(charging|discharging|charged|finishing charge|AC attached)/i);
+    if (match) {
+      const percent = parseInt(match[1], 10);
+      const status = match[2].toLowerCase();
+      return `${percent}%, ${status}`;
+    }
+    if (output.includes("No battery")) return "No battery (desktop)";
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function getLastWakeLog(): any | null {

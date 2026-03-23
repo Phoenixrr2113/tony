@@ -1,6 +1,7 @@
 {
-  "heartbeat": {
-    "interval": "1h",
+  "watchdog": {
+    "idleTimeoutSeconds": 300,
+    "restartDelaySeconds": 5,
     "activeHours": {
       "start": "06:00",
       "end": "23:00",
@@ -10,7 +11,7 @@
   "creature": {
     "name": "Edith",
     "bootDate": "2026-03-18",
-    "maxTurns": 25,
+    "maxTurns": 100,
     "costLimits": {
       "perDay": 10,
       "perMonth": 200

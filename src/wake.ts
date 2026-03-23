@@ -1,6 +1,7 @@
-import { existsSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync } from "fs";
 import { join } from "path";
-import { MIND_DIR, TRANSCRIPTS_DIR } from "./lib/paths.ts";
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { MIND_DIR, TRANSCRIPTS_DIR, ROOT } from "./lib/paths.ts";
 import { getSchedule } from "./lib/schedule.ts";
 import { assembleSystemPrompt, assembleWakeMessage } from "./lib/context.ts";
 import { buildIndex } from "./lib/indexer.ts";
@@ -9,7 +10,29 @@ import { checkCreatorInbox, checkCreatorOutbox, clearInbox } from "./lib/messagi
 import { acquireLock, releaseLock } from "./lib/wakelock.ts";
 import { runMaintenance } from "./lib/maintenance.ts";
 
-export async function wake(reason = "heartbeat") {
+export type WakeResult = {
+  timestamp: string;
+  reason: string;
+  durationSeconds: number;
+  exitCode: number | null;
+  turns: number;
+  idleKilled: boolean;
+  outputLength: number;
+};
+
+function loadMcpServers(): Record<string, any> {
+  const mcpConfigPath = join(ROOT, "mcp-config.json");
+  if (!existsSync(mcpConfigPath)) return {};
+
+  try {
+    const config = JSON.parse(readFileSync(mcpConfigPath, "utf-8"));
+    return config.mcpServers ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function wake(reason = "heartbeat"): Promise<WakeResult | null> {
   ensureDirs();
 
   if (!acquireLock()) {
@@ -24,7 +47,7 @@ export async function wake(reason = "heartbeat") {
   }
 }
 
-async function _doWake(reason: string) {
+async function _doWake(reason: string): Promise<WakeResult> {
   const maintenanceReport = runMaintenance();
   if (maintenanceReport.length > 0) {
     console.log(`🔧 Maintenance:\n${maintenanceReport.map(r => `  ${r}`).join("\n")}`);
@@ -35,7 +58,8 @@ async function _doWake(reason: string) {
   buildIndex();
 
   const schedule = getSchedule();
-  const maxTurns = schedule.creature?.maxTurns ?? 25;
+  const maxTurns = schedule.creature?.maxTurns ?? 100;
+  const idleTimeout = (schedule.watchdog?.idleTimeoutSeconds ?? 300) * 1000;
 
   const systemPrompt = assembleSystemPrompt();
   const wakeMessage = assembleWakeMessage(reason);
@@ -45,79 +69,101 @@ async function _doWake(reason: string) {
 
   const allowedTools = [
     "Read", "Write", "Edit", "MultiEdit",
-    "Bash", "Glob", "Grep", "WebFetch", "Task",
+    "Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task",
   ];
 
-  const args = [
-    "claude",
-    "-p", wakeMessage,
-    "--system-prompt", systemPrompt,
-    "--max-turns", String(maxTurns),
-    "--output-format", "stream-json",
-    "--verbose",
-    "--dangerously-skip-permissions",
-    "--allowedTools", allowedTools.join(","),
-  ];
+  const wakeId = new Date().toISOString().replace(/[:.]/g, "-");
+  const transcriptPath = join(TRANSCRIPTS_DIR, `${wakeId}.jsonl`);
 
-  let proc;
+  let lastActivityTime = Date.now();
+  let turns = 0;
+  let resultText = "(no output)";
+  let idleKilled = false;
+  let queryHandle: ReturnType<typeof query> | null = null;
+
+  const idleTimer = setInterval(() => {
+    const idleMs = Date.now() - lastActivityTime;
+    if (idleMs >= idleTimeout) {
+      console.log(`\n⏱️  Idle for ${Math.round(idleMs / 1000)}s — killing session.`);
+      idleKilled = true;
+      if (queryHandle) {
+        queryHandle.close();
+      }
+      clearInterval(idleTimer);
+    }
+  }, 5000);
+
   try {
-    proc = Bun.spawn(args, {
-      cwd: MIND_DIR,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: {
-        ...process.env,
-        PATH: `/opt/homebrew/bin:${process.env.HOME}/.bun/bin:${process.env.PATH}`,
+    queryHandle = query({
+      prompt: wakeMessage,
+      options: {
+        systemPrompt,
+        allowedTools,
+        maxTurns,
+        permissionMode: "bypassPermissions",
+        cwd: MIND_DIR,
+        mcpServers: loadMcpServers(),
       },
     });
-  } catch (err: any) {
-    if (err?.code === "ENOENT") {
-      throw new Error("claude CLI not found in PATH. Install Claude Code: https://code.claude.com");
-    }
-    throw err;
-  }
 
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
-  await proc.exited;
+    for await (const message of queryHandle) {
+      const line = JSON.stringify(message);
+      appendFileSync(transcriptPath, line + "\n", "utf-8");
+
+      if (message.type === "assistant" && (message as any).message?.content) {
+        lastActivityTime = Date.now();
+        for (const block of (message as any).message.content) {
+          if (block.type === "tool_use" || ("name" in block && block.name)) {
+            turns++;
+            const toolName = block.name ?? "unknown";
+            console.log(`  🔧 [${turns}/${maxTurns}] ${toolName}`);
+          }
+          if ("text" in block && block.text) {
+            resultText = block.text;
+          }
+        }
+      }
+
+      if (message.type === "result") {
+        lastActivityTime = Date.now();
+        const resultMsg = message as any;
+        if (resultMsg.result) {
+          resultText = resultMsg.result;
+        }
+      }
+    }
+  } catch (err: any) {
+    if (!idleKilled) {
+      console.error(`❌ Agent SDK error:`, err?.message ?? err);
+    }
+  } finally {
+    clearInterval(idleTimer);
+  }
 
   const duration = Math.round((Date.now() - startTime) / 1000);
-
-  const wakeId = `${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  const transcriptPath = join(TRANSCRIPTS_DIR, `${wakeId}.jsonl`);
-  writeFileSync(transcriptPath, stdout, "utf-8");
-
-  const events = stdout.trim().split("\n").filter(Boolean);
-  let resultText = "(no output)";
-  for (const line of events) {
-    try {
-      const event = JSON.parse(line);
-      if (event.type === "result" && event.result) {
-        resultText = event.result;
-      }
-    } catch {}
-  }
-
-  if (stderr.trim()) {
-    console.error(`⚠️  stderr: ${stderr.slice(0, 500)}`);
-  }
 
   console.log(`\n💭 Edith: ${resultText.slice(0, 500)}`);
   console.log(`📝 Transcript: ${transcriptPath}`);
 
-  const wakeLog = {
+  const wakeLog: WakeResult = {
     timestamp: new Date().toISOString(),
     reason,
     durationSeconds: duration,
-    exitCode: proc.exitCode,
-    outputLength: stdout.length,
+    exitCode: idleKilled ? 1 : 0,
+    turns,
+    idleKilled,
+    outputLength: existsSync(transcriptPath) ? Bun.file(transcriptPath).size : 0,
   };
 
   logWake(wakeLog);
-  console.log(`\n😴 Edith sleeping — ${duration}s wake\n`);
+
+  if (idleKilled) {
+    console.log(`\n⏱️  Edith went idle — session killed after ${duration}s\n`);
+  } else {
+    console.log(`\n😴 Edith finished — ${duration}s, ${turns} turns\n`);
+  }
 
   await checkCreatorOutbox();
-
   clearInbox();
 
   return wakeLog;
@@ -127,4 +173,3 @@ if (import.meta.main) {
   const reason = process.argv[2] ?? "manual";
   await wake(reason);
 }
-

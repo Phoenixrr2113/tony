@@ -1,4 +1,13 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "apple-mcp": {
+      "command": "bunx",
+      "args": ["--no-cache", "github:Phoenixrr2113/apple-mcp"]
+    },
+    "graphiti-memory": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://localhost:8000/mcp/"]
+    }
+  }
 }
 

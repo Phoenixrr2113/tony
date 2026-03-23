@@ -1,9 +1,8 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { INBOX_PATH, OUTBOX_PATH, ARCHIVE_PATH } from "./paths.ts";
-import { sendTelegramMessage, pollTelegramMessages } from "./telegram.ts";
+import { sendTelegramMessage, pollTelegramMessages, type TelegramMessage } from "./telegram.ts";
 
-export async function checkCreatorInbox() {
-  const messages = await pollTelegramMessages();
+export function writeMessagesToInbox(messages: TelegramMessage[]) {
   if (messages.length === 0) return;
 
   const formatted = messages
@@ -19,6 +18,11 @@ export async function checkCreatorInbox() {
   }
 
   console.log(`📬 ${messages.length} message(s) from Randy → creator-inbox.md`);
+}
+
+export async function checkCreatorInbox() {
+  const messages = await pollTelegramMessages();
+  writeMessagesToInbox(messages);
 }
 
 export async function checkCreatorOutbox() {

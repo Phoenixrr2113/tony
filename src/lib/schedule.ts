@@ -38,7 +38,9 @@ export function parseInterval(interval: string): number {
 
 export function isWithinActiveHours(): boolean {
   const schedule = getSchedule();
-  const { start, end, timezone } = schedule.heartbeat.activeHours;
+  const activeHours = schedule.watchdog?.activeHours ?? schedule.heartbeat?.activeHours;
+  if (!activeHours) return true;
+  const { start, end, timezone } = activeHours;
 
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-US", {

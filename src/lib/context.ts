@@ -1,8 +1,9 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
-import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH } from "./paths.ts";
+import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH, SKILLS_DIR } from "./paths.ts";
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
 import { computeState } from "./state.ts";
+import { gatherPrewakeContext } from "./prewake.ts";
 
 function readRootFile(name: string): string {
   const path = join(ROOT, name);
@@ -55,6 +56,18 @@ function getKnowledgeSummaries(): string {
   }
 }
 
+function getSkillsList(): string {
+  if (!existsSync(SKILLS_DIR)) return "";
+
+  const files = readdirSync(SKILLS_DIR).filter(
+    (f: string) => !f.startsWith(".") && f !== "HOW_TO_SKILLS.md"
+  );
+
+  if (files.length === 0) return "No skills created yet. See `mind/skills/HOW_TO_SKILLS.md` for how to create skills.";
+
+  return files.map((f) => `- \`mind/skills/${f}\``).join("\n");
+}
+
 export function assembleSystemPrompt(): string {
   const soul = readMindFile("SOUL.md");
   const identity = readMindFile("IDENTITY.md");
@@ -72,7 +85,7 @@ export function assembleSystemPrompt(): string {
 
 export function assembleWakeMessage(reason = "heartbeat"): string {
   const schedule = getSchedule();
-  const maxTurns = schedule.creature?.maxTurns ?? 25;
+  const maxTurns = schedule.creature?.maxTurns ?? 100;
   const template = readRootFile("WAKE_PROMPT.md");
   const bootDate = getBootDate();
   const daysAlive = getDaysAlive(bootDate);
@@ -104,9 +117,19 @@ export function assembleWakeMessage(reason = "heartbeat"): string {
     message += `\n\n---\n\n# Message from Randy\n\nYour creator sent you a message. Read it carefully and consider responding via your outbox (\`journal/creator-outbox.md\`).\n\n${inbox.trim()}`;
   }
 
+  const prewake = gatherPrewakeContext();
+  if (prewake) {
+    message += `\n\n---\n\n# Today's Context\n\n${prewake}`;
+  }
+
   const knowledge = getKnowledgeSummaries();
   if (knowledge) {
     message += `\n\n---\n\n# Knowledge Base (Summaries)\n\nThese are summaries of your knowledge files. Use \`Read\` to load the full content of any file you need.\n\n${knowledge}`;
+  }
+
+  const skills = getSkillsList();
+  if (skills) {
+    message += `\n\n---\n\n# Available Skills\n\nYou have skills in \`mind/skills/\`. Read any skill file for details before using it. You can also create new skills.\n\n${skills}`;
   }
 
   return message;
