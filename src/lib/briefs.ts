@@ -2,7 +2,7 @@
  * Brief assembly — builds the right prompt for each event type.
  * Replaces the monolithic WAKE_PROMPT.md with targeted brief templates.
  */
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { MIND_DIR, JOURNAL_DIR, TASKS_PATH } from "./paths.ts";
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
@@ -18,7 +18,6 @@ function readFile(path: string): string {
 
 function getRecentJournal(): string {
   if (!existsSync(JOURNAL_DIR)) return "";
-  const { readdirSync } = require("fs");
   const datePattern = /^\d{4}-\d{2}-\d{2}\.md$/;
   const files = readdirSync(JOURNAL_DIR)
     .filter((f: string) => datePattern.test(f))

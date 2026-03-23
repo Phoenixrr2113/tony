@@ -30,4 +30,6 @@ trigger: When Randy asks you to work on code, review a PR, fix a test, or unders
 
 - Created: 2026-03-23
 - Origin: Phase 8A — code delegation as a skill, not daemon code
-- Verify CLI tools are installed before using: `which gemini`, `which auggie`, `which claude`
+- `gemini` ✅ installed at /opt/homebrew/bin/gemini
+- `claude` ✅ installed at /Users/randywilson/.local/bin/claude
+- `auggie` ❌ not installed — skip auggie tasks until installed

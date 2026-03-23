@@ -177,15 +177,17 @@ Edith delegates code tasks to the right CLI tool. This is a **skill**, not daemo
   - Gemini CLI (`gemini`) — large codebase understanding, 1M token context
   - Auggie CLI (`auggie`) — code review, test failures, CI
   - Claude Code (`claude -p`) — quick refactors, one-shot tasks
-- [ ] Verify `gemini` CLI is installed and authed
-- [ ] Verify `auggie` CLI is installed and authed
+- [x] Verify `gemini` CLI is installed and authed — ✅ at /opt/homebrew/bin/gemini
+- [ ] Verify `auggie` CLI is installed and authed — ❌ not installed
 
 ### 8B: Microsoft Teams Access
 
-- [ ] Research: is there an MCP server for Teams?
-- [ ] Alternative: Microsoft Graph API via CLI tool
-- [ ] Alternative: Teams desktop app + AppleScript/accessibility
-- [ ] If feasible, create a skill for Teams access
+- [x] Research: is there an MCP server for Teams? — YES, several exist
+  - [floriscornel/teams-mcp](https://github.com/floriscornel/teams-mcp) — Graph API access (best fit)
+  - [InditexTech/mcp-teams-server](https://github.com/InditexTech/mcp-teams-server) — read/create/reply
+  - Microsoft Teams SDK has native MCP support now
+- [x] If feasible, create a skill for Teams access — created `.claude/skills/teams-access/SKILL.md`
+- [ ] Install Teams MCP server + configure Azure AD app registration (needs Randy)
 
 ---
 

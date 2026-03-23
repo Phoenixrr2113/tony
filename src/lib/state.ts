@@ -37,7 +37,7 @@ export function computeState(): string {
   const todayWakes = getTodayWakeCount();
   lines.push(`Wakes: ${todayWakes} today, ${totalWakes} lifetime`);
 
-  lines.push(`Mode: continuous (watchdog)`);
+  lines.push(`Mode: event-driven (scheduled briefs + message triggers)`);
   lines.push(`Idle timeout: ${schedule.watchdog?.idleTimeoutSeconds ?? 300}s`);
 
   const hasInbox = existsSync(INBOX_PATH) && readFileSync(INBOX_PATH, "utf-8").trim().length > 0;
