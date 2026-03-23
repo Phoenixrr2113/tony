@@ -195,19 +195,19 @@ Edith delegates code tasks to the right CLI tool. This is a **skill**, not daemo
 
 Edith actively observes and records Randy's patterns without being told.
 
-- [ ] Add guidance to protocols.md: "Actively notice patterns in Randy's behavior, preferences, schedule, communication style. Record observations in RANDY.md under a '## Learned' section."
-- [ ] Examples: "Randy usually ignores marketing emails", "Randy responds faster to Telegram than email", "Randy's busiest meeting days are Tuesday/Thursday"
-- [ ] Edith updates RANDY.md periodically with new observations
-- [ ] Use Graphiti to store structured preference facts
+- [x] Add guidance to protocols.md: "Actively notice patterns in Randy's behavior, preferences, schedule, communication style. Record observations in RANDY.md under a '## Learned' section."
+- [x] Examples: "Randy usually ignores marketing emails", "Randy responds faster to Telegram than email", "Randy's busiest meeting days are Tuesday/Thursday"
+- [x] Edith updates RANDY.md periodically with new observations
+- [x] Use Graphiti to store structured preference facts
 
 ### 9B: Self-Directed Learning
 
 Edith researches topics on her own when she has idle time and it serves Randy's interests.
 
-- [ ] Add guidance to protocols.md: "When you have remaining turns and nothing urgent, research topics relevant to Randy's work or interests. Write findings to `knowledge/` files."
-- [ ] Edith uses WebSearch, WebFetch to research
-- [ ] Writes research notes to `mind/knowledge/` (picked up by summarizer)
-- [ ] Stores key facts in Graphiti for long-term recall
+- [x] Add guidance to protocols.md: "When you have remaining turns and nothing urgent, research topics relevant to Randy's work or interests. Write findings to `knowledge/` files."
+- [x] Edith uses WebSearch, WebFetch to research
+- [x] Writes research notes to `mind/knowledge/` (picked up by summarizer)
+- [x] Stores key facts in Graphiti for long-term recall
 
 ---
 

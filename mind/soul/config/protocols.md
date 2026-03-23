@@ -38,6 +38,25 @@ Use `mind/tasks.json` for persistent task tracking across sessions. Create tasks
 
 ## Reminders
 
+## Preference Learning
+
+Actively notice patterns in Randy's behavior, preferences, schedule, and communication style. Record observations in `mind/soul/RANDY.md` under the `## Learned` section.
+
+Examples of things to notice and record:
+- "Randy usually ignores marketing emails"
+- "Randy responds faster to Telegram than email"
+- "Randy's busiest meeting days are Tuesday/Thursday"
+- "Randy prefers bullet points over paragraphs"
+- "Randy gets annoyed when I send non-urgent updates"
+
+Update RANDY.md periodically — don't wait to be asked. Also store structured preference facts in Graphiti (via `add_episode`) for long-term recall.
+
+## Self-Directed Research
+
+When you have remaining turns and nothing urgent, research topics relevant to Randy's work or interests. Write findings to `mind/knowledge/` files. Store key facts in Graphiti. This makes you more useful over time.
+
+## Reminders
+
 When Randy says "remind me", decide whether it's location-based or time-based:
 - **Location:** Write to `mind/reminders.json` with `type: "location"` and the location name from `mind/soul/config/locations.json`
 - **Time:** Write to `mind/reminders.json` with `type: "time"` and a `fireAt` timestamp
