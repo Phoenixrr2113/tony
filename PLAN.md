@@ -142,6 +142,7 @@ Randy's Android phone forwards incoming SMS to the Telegram bot using the `teleg
 **Daemon changes:**
 - [x] **Tag detection** — `pollTelegramMessages()` detects `[SMS]` prefix and tags `source: "sms"` on messages
 - [x] **Context injection** — SMS messages tagged with `[SMS]` in inbox and `streamInput` payloads
+- [ ] **SMS bot architecture** — telegram-sms sends AS the bot, so the bot can't see its own messages via `getUpdates`. Fix: create a second bot for telegram-sms, put both bots in a Telegram group. Edith's bot reads messages from the SMS bot in the group. Requires: new bot via @BotFather, group chat setup, update `TELEGRAM_CHAT_ID` to group ID, enable `can_read_all_group_messages` on Edith's bot
 - [ ] **Reply path** — Future: Edith drafts SMS replies via Telegram→telegram-sms bridge
 
 **What Edith can do with SMS:**
