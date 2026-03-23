@@ -213,6 +213,8 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
     let maxOffset = offset;
 
     const allowedUserId = getEnv("TELEGRAM_USER_ID");
+    // Optional: SMS relay bot ID for two-bot SMS architecture
+    const smsBotId = process.env.TELEGRAM_SMS_BOT_ID ?? "";
 
     for (const update of data.result) {
       if (update.update_id >= maxOffset) {
@@ -224,7 +226,11 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       if (!msg) continue;
       if (String(msg.chat?.id) !== chatId) continue;
 
-      if (String(msg.from?.id) !== allowedUserId) {
+      const senderId = String(msg.from?.id ?? "");
+      const isRandy = senderId === allowedUserId;
+      const isSmsBot = smsBotId && senderId === smsBotId;
+
+      if (!isRandy && !isSmsBot) {
         console.log(`⛔ Rejected message from unknown user ${msg.from?.id} (${msg.from?.first_name ?? "?"})`);
         continue;
       }
@@ -271,9 +277,9 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       // Text messages
       if (!msg.text) continue;
 
-      // Detect SMS forwarded from telegram-sms app
-      const isSms = msg.text.startsWith("[SMS]");
-      const from = msg.from?.first_name ?? msg.from?.username ?? "Unknown";
+      // Detect SMS: messages from relay bot are always SMS, or legacy [SMS] prefix
+      const isSms = isSmsBot || msg.text.startsWith("[SMS]");
+      const from = isSmsBot ? "SMS Relay" : (msg.from?.first_name ?? msg.from?.username ?? "Unknown");
 
       persistMessage({
         type: isSms ? "sms" : "text",

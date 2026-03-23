@@ -222,15 +222,16 @@ telegram-sms app is installed on Randy's phone. The architectural issue: telegra
 - [ ] Create a second Telegram bot via @BotFather (e.g. "EdithSMSRelay")
 - [ ] Configure telegram-sms to use the RELAY bot token
 - [ ] Create a Telegram group with both bots
-- [ ] Configure Edith's bot with `can_read_all_group_messages` enabled
+- [ ] Configure Edith's bot with `can_read_all_group_messages` enabled (via @BotFather → /setprivacy → Disable)
 - [ ] Update `TELEGRAM_CHAT_ID` to the group chat ID
-- [ ] Update daemon to handle group message format
+- [x] Update daemon to handle group message format — accepts messages from SMS relay bot via `TELEGRAM_SMS_BOT_ID`
+- [ ] Set `TELEGRAM_SMS_BOT_ID` env var to the relay bot's user ID
 - [ ] Test: send SMS → appears in group → Edith's bot reads it
 
 ### telegram-sms Settings
 - Bot token: use the RELAY bot token (not Edith's)
 - Chat ID: the group chat ID
-- Trusted number: Randy's phone number
+- Trusted number: 9416627510
 - Enable: "Forward received SMS", "Battery monitoring"
 
 ---

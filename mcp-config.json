@@ -7,6 +7,10 @@
     "graphiti-memory": {
       "command": "npx",
       "args": ["mcp-remote", "http://localhost:8000/mcp/"]
+    },
+    "teams-mcp": {
+      "command": "npx",
+      "args": ["-y", "@floriscornel/teams-mcp@latest"]
     }
   }
 }
