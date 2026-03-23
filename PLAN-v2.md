@@ -219,13 +219,13 @@ Edith researches topics on her own when she has idle time and it serves Randy's 
 telegram-sms app is installed on Randy's phone. The architectural issue: telegram-sms sends messages AS the bot, so the bot can't see its own messages via `getUpdates`.
 
 ### Fix: Two-Bot Architecture
-- [ ] Create a second Telegram bot via @BotFather (e.g. "EdithSMSRelay")
-- [ ] Configure telegram-sms to use the RELAY bot token
-- [ ] Create a Telegram group with both bots
-- [ ] Configure Edith's bot with `can_read_all_group_messages` enabled (via @BotFather → /setprivacy → Disable)
-- [ ] Update `TELEGRAM_CHAT_ID` to the group chat ID
+- [x] Create a second Telegram bot via @BotFather — @edith_sms_relay_bot (ID: 8657261490)
+- [ ] Configure telegram-sms app on phone to use the RELAY bot token
+- [x] Create a Telegram group with both bots — "Edith SMS" (chat ID: -5166329087)
+- [x] Configure Edith's bot with `can_read_all_group_messages` enabled
+- [x] Update `TELEGRAM_CHAT_ID` to the group chat ID
 - [x] Update daemon to handle group message format — accepts messages from SMS relay bot via `TELEGRAM_SMS_BOT_ID`
-- [ ] Set `TELEGRAM_SMS_BOT_ID` env var to the relay bot's user ID
+- [x] Set `TELEGRAM_SMS_BOT_ID` env var to the relay bot's user ID
 - [ ] Test: send SMS → appears in group → Edith's bot reads it
 
 ### telegram-sms Settings
