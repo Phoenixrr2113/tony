@@ -2,12 +2,13 @@ import { join, resolve } from "path";
 
 export const ROOT = resolve(import.meta.dir, "..", "..");
 export const MIND_DIR = join(ROOT, "mind");
+export const SOUL_DIR = join(MIND_DIR, "soul");
+export const SOUL_CONFIG_DIR = join(SOUL_DIR, "config");
 export const LOGS_DIR = join(ROOT, "logs");
 export const TRANSCRIPTS_DIR = join(LOGS_DIR, "transcripts");
 export const JOURNAL_DIR = join(MIND_DIR, "journal");
 export const JOURNAL_ARCHIVE_DIR = join(JOURNAL_DIR, "archive");
 export const KNOWLEDGE_DIR = join(MIND_DIR, "knowledge");
-export const SKILLS_DIR = join(MIND_DIR, "skills");
 export const INDEX_PATH = join(KNOWLEDGE_DIR, ".index.json");
 export const INBOX_PATH = join(JOURNAL_DIR, "creator-inbox.md");
 export const OUTBOX_PATH = join(JOURNAL_DIR, "creator-outbox.md");
@@ -17,9 +18,9 @@ export const WAKE_LOCK_PATH = join(LOGS_DIR, ".wake-lock");
 export const MEMORY_PATH = join(MIND_DIR, "MEMORY.md");
 export const TASKS_PATH = join(MIND_DIR, "tasks.json");
 export const LOCATION_PATH = join(LOGS_DIR, "location.json");
-export const SKILL_INDEX_PATH = join(SKILLS_DIR, ".skill-index.json");
 export const SESSION_STATE_PATH = join(LOGS_DIR, "session-state.json");
 export const SIGNAL_RESTART_PATH = join(MIND_DIR, ".signal-restart.json");
 export const SIGNAL_PAUSE_PATH = join(MIND_DIR, ".signal-pause.json");
+export const REMINDERS_PATH = join(MIND_DIR, "reminders.json");
+export const MESSAGES_LOG_PATH = join(LOGS_DIR, "messages.jsonl");
 export const PREWAKE_TIMEOUT_MS = 10_000;
-

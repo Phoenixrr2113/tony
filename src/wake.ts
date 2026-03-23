@@ -1,13 +1,15 @@
 import { existsSync, readFileSync, appendFileSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { MIND_DIR, TRANSCRIPTS_DIR, ROOT, SESSION_STATE_PATH, SIGNAL_RESTART_PATH } from "./lib/paths.ts";
+import { TRANSCRIPTS_DIR, ROOT, SESSION_STATE_PATH, SIGNAL_RESTART_PATH } from "./lib/paths.ts";
 import { getSchedule } from "./lib/schedule.ts";
-import { assembleSystemPrompt, assembleWakeMessage } from "./lib/context.ts";
+import { assembleSystemPrompt } from "./lib/context.ts";
+import { assembleBrief, type BriefType } from "./lib/briefs.ts";
 import { buildIndex } from "./lib/indexer.ts";
 import { buildSummaries } from "./lib/summarizer.ts";
 import { ensureDirs, logWake } from "./lib/logger.ts";
 import { checkCreatorInbox, checkCreatorOutbox, clearInbox } from "./lib/messaging.ts";
+import { sendTypingAction } from "./lib/telegram.ts";
 import { acquireLock, releaseLock } from "./lib/wakelock.ts";
 import { runMaintenance } from "./lib/maintenance.ts";
 import { setActiveQuery } from "./lib/session.ts";
@@ -81,6 +83,10 @@ function loadMcpServers(skipGraphiti = false): Record<string, any> {
 export type WakeOptions = {
   forceFresh?: boolean;
   skipGraphiti?: boolean;
+  briefType?: BriefType;
+  messageText?: string;
+  locationName?: string;
+  reminderText?: string;
 };
 
 export async function wake(reason = "heartbeat", opts: WakeOptions = {}): Promise<WakeResult | null> {
@@ -99,7 +105,7 @@ export async function wake(reason = "heartbeat", opts: WakeOptions = {}): Promis
 }
 
 async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResult> {
-  const { forceFresh = false, skipGraphiti = false } = opts;
+  const { forceFresh = false, skipGraphiti = false, briefType = "boot", messageText, locationName, reminderText } = opts;
   const maintenanceReport = runMaintenance();
   if (maintenanceReport.length > 0) {
     console.log(`🔧 Maintenance:\n${maintenanceReport.map(r => `  ${r}`).join("\n")}`);
@@ -119,7 +125,7 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
   const idleTimeout = (schedule.watchdog?.idleTimeoutSeconds ?? 300) * 1000;
 
   const systemPrompt = assembleSystemPrompt();
-  const wakeMessage = assembleWakeMessage(reason);
+  const wakeMessage = assembleBrief(briefType, { reason, messageText, locationName, reminderText });
 
   // Session continuity: resume previous session unless fresh start requested
   const previousSession = loadSessionState();
@@ -136,6 +142,7 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
   const allowedTools = [
     "Read", "Write", "Edit", "MultiEdit",
     "Bash", "Glob", "Grep", "WebFetch", "WebSearch", "Task",
+    "Skill",
   ];
 
   const wakeId = new Date().toISOString().replace(/[:.]/g, "-");
@@ -167,6 +174,12 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
     } catch {}
   }, 3_000);
 
+  // Send typing indicator every 5s while session is active
+  sendTypingAction(); // Initial send
+  const typingInterval = setInterval(() => {
+    sendTypingAction();
+  }, 5_000);
+
   try {
     queryHandle = query({
       prompt: wakeMessage,
@@ -175,7 +188,8 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
         allowedTools,
         maxTurns,
         permissionMode: "bypassPermissions",
-        cwd: MIND_DIR,
+        cwd: ROOT,
+        settingSources: ["project"],
         mcpServers: loadMcpServers(skipGraphiti),
         ...(shouldContinue ? { continue: true } : {}),
       },
@@ -228,6 +242,7 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
     setActiveQuery(null);
     clearInterval(idleTimer);
     clearInterval(outboxWatcher);
+    clearInterval(typingInterval);
   }
 
   const duration = Math.round((Date.now() - startTime) / 1000);

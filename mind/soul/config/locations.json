@@ -1,0 +1,12 @@
+{
+  "locations": [
+    {
+      "name": "home",
+      "label": "Home",
+      "lat": 0,
+      "lon": 0,
+      "radiusMeters": 200,
+      "notes": "Randy to fill in coordinates"
+    }
+  ]
+}

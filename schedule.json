@@ -8,6 +8,11 @@
       "timezone": "America/New_York"
     }
   },
+  "briefs": [
+    { "name": "morning", "time": "08:00", "type": "morning", "enabled": true },
+    { "name": "midday", "time": "12:00", "type": "midday", "enabled": true },
+    { "name": "evening", "time": "17:00", "type": "evening", "enabled": true }
+  ],
   "agent": {
     "name": "Edith",
     "bootDate": "2026-03-18",

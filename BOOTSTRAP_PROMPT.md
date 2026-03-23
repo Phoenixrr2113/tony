@@ -11,13 +11,15 @@ I'm building **Edith** — a proactive, always-on AI personal assistant that run
 The project files are already in this directory. Here's the architecture:
 
 **Edith's mind (loaded into system prompt on each wake):**
-- `mind/SOUL.md` — Core behavior, priorities, boundaries
-- `mind/IDENTITY.md` — Name, voice, tone. Has `{{FIRST_BOOT_DATE}}` and `{{DAYS_SINCE_BOOT}}` template vars
-- `mind/CREATOR.md` — Info about Randy (creator), contact rules, machine setup
+- `mind/soul/SOUL.md` — Core behavior, prime directive, boundaries
+- `mind/soul/IDENTITY.md` — Name, voice, tone. Has `{{FIRST_BOOT_DATE}}` and `{{DAYS_SINCE_BOOT}}` template vars
+- `mind/soul/RANDY.md` — Everything about Randy (setup + preferences + learned patterns)
+- `mind/soul/config/protocols.md` — Message format, session control, task tracking, reminder logic
+- `mind/soul/config/locations.json` — Named places for geo-reminders
 - `mind/MEMORY.md` — Synthesized working memory (Edith reads/writes this)
 - `mind/journal/` — Daily session logs, creator inbox/outbox
-- `mind/skills/` — Reusable skills Edith creates
 - `mind/knowledge/` — Long-form knowledge files
+- `.claude/skills/` — SDK-native skills (auto-discovered)
 
 **Daemon infrastructure (Edith cannot access):**
 - `src/daemon.ts` — Watchdog loop: monitors sessions, polls Telegram, manages restarts
@@ -34,7 +36,7 @@ The project files are already in this directory. Here's the architecture:
 
 **Key architecture decisions:**
 - Uses `@anthropic-ai/claude-agent-sdk` (`query()`) — not the Claude CLI
-- Agent runs with `cwd: mind/` so Edith only sees her own workspace
+- Agent runs with `cwd: project root` — Edith can read `src/` but writes to `mind/`
 - `permissionMode: "bypassPermissions"` — Edith acts autonomously
 - MCP servers: `apple-mcp` (Calendar, Mail, Notes, etc.) + `graphiti-memory` (knowledge graph)
 - Telegram polling (outbound only, no webhooks, no exposed ports)

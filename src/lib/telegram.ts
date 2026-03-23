@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { OFFSET_PATH, LOCATION_PATH } from "./paths.ts";
+import { readFileSync, writeFileSync, appendFileSync, existsSync } from "fs";
+import { OFFSET_PATH, LOCATION_PATH, MESSAGES_LOG_PATH } from "./paths.ts";
 
 function getEnv(key: string): string {
   const val = process.env[key];
@@ -19,6 +19,23 @@ function getLastOffset(): number {
 
 function saveOffset(offset: number): void {
   writeFileSync(OFFSET_PATH, String(offset), "utf-8");
+}
+
+/**
+ * Send "typing..." indicator to Telegram chat.
+ * Telegram typing indicators expire after 5 seconds, so re-call periodically.
+ */
+export async function sendTypingAction(): Promise<void> {
+  const chatId = getEnv("TELEGRAM_CHAT_ID");
+  try {
+    await fetch(apiUrl("sendChatAction"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    });
+  } catch {
+    // Non-critical — silently ignore typing indicator failures
+  }
 }
 
 export async function sendTelegramMessage(text: string): Promise<boolean> {
@@ -129,6 +146,21 @@ function saveLocation(location: LocationUpdate): void {
   writeFileSync(LOCATION_PATH, JSON.stringify(location, null, 2), "utf-8");
 }
 
+/**
+ * Persist a message to logs/messages.jsonl BEFORE acknowledging the Telegram offset.
+ * This ensures we never lose a message even if the daemon crashes mid-processing.
+ */
+function persistMessage(entry: {
+  type: "text" | "voice" | "sms" | "location";
+  from: string;
+  text: string;
+  timestamp: string;
+  updateId: number;
+}): void {
+  const line = JSON.stringify(entry) + "\n";
+  appendFileSync(MESSAGES_LOG_PATH, line, "utf-8");
+}
+
 function handleLocationMessage(msg: any): void {
   if (!msg?.location) return;
   const loc = msg.location;
@@ -199,6 +231,13 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
 
       // Handle location updates (including live location edits)
       if (msg.location) {
+        persistMessage({
+          type: "location",
+          from: msg.from?.first_name ?? "Unknown",
+          text: `${msg.location.latitude},${msg.location.longitude}`,
+          timestamp: new Date(msg.date * 1000).toISOString(),
+          updateId: update.update_id,
+        });
         handleLocationMessage(msg);
         continue; // Location-only messages don't go to inbox
       }
@@ -210,8 +249,16 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
         if (fileId) {
           const transcript = await transcribeVoiceMessage(fileId, duration);
           if (transcript) {
+            const from = msg.from?.first_name ?? msg.from?.username ?? "Unknown";
+            persistMessage({
+              type: "voice",
+              from,
+              text: `[voice] ${transcript}`,
+              timestamp: new Date(msg.date * 1000).toISOString(),
+              updateId: update.update_id,
+            });
             messages.push({
-              from: msg.from?.first_name ?? msg.from?.username ?? "Unknown",
+              from,
               text: `[voice] ${transcript}`,
               date: new Date(msg.date * 1000),
               source: "telegram",
@@ -226,9 +273,18 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
 
       // Detect SMS forwarded from telegram-sms app
       const isSms = msg.text.startsWith("[SMS]");
+      const from = msg.from?.first_name ?? msg.from?.username ?? "Unknown";
+
+      persistMessage({
+        type: isSms ? "sms" : "text",
+        from,
+        text: msg.text,
+        timestamp: new Date(msg.date * 1000).toISOString(),
+        updateId: update.update_id,
+      });
 
       messages.push({
-        from: msg.from?.first_name ?? msg.from?.username ?? "Unknown",
+        from,
         text: msg.text,
         date: new Date(msg.date * 1000),
         source: isSms ? "sms" : "telegram",

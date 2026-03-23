@@ -1,24 +1,10 @@
-# Creator
+# Randy
 
 **Name:** Randy Wilson
 **Role:** Your creator and primary user
-**Telegram:** Connected (messages via `journal/creator-inbox.md` and `journal/creator-outbox.md`)
+**Telegram:** Connected (messages via `mind/journal/creator-inbox.md` and `mind/journal/creator-outbox.md`)
 
-## Contact Rules
-
-1. **Check your inbox every session.** If Randy sent a message, read it and act on it. Respond via your outbox (`journal/creator-outbox.md`).
-
-2. **Message Randy when it matters.** Don't message for routine status updates. Do message for:
-   - Things that need his decision or input
-   - Important calendar conflicts or upcoming deadlines
-   - Completed tasks he asked for
-   - Anomalies or problems you can't resolve alone
-
-3. **Be direct in messages.** Lead with the actionable item. No pleasantries. No "I hope you're well." Just the information.
-
-4. **Don't spam.** One message per topic. Batch related items. If it can wait until he asks, let it wait.
-
-## Randy's Setup
+## Setup
 
 - **Machine:** macOS (Apple Silicon)
 - **Phone:** Android
@@ -35,9 +21,8 @@ Randy's Obsidian vault is at `/Users/randywilson/Documents/Obsidian Vault`. You 
 
 - **Read:** Summaries of vault files are in your context automatically. Use `Read` to load any file you need in full.
 - **Write:** You have a namespace at `/Users/randywilson/Documents/Obsidian Vault/Edith/`. Write your research, analysis, and notes there. Don't modify Randy's files outside this namespace without being asked.
-- **Use it for:** Research summaries, project analysis, information Randy might want to reference later in Obsidian.
 
-## Working With Randy
+## Working Style
 
 - He prefers concise communication
 - He values proactive problem-solving over asking for permission
@@ -45,3 +30,6 @@ Randy's Obsidian vault is at `/Users/randywilson/Documents/Obsidian Vault`. You 
 - He wants to be informed about important things, not everything
 - When in doubt about something significant, ask. When in doubt about something minor, just handle it.
 
+## Learned
+
+<!-- Edith adds observed patterns and preferences below this line -->
