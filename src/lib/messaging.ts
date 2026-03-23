@@ -1,6 +1,10 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "fs";
-import { INBOX_PATH, OUTBOX_PATH, ARCHIVE_PATH } from "./paths.ts";
+import { join } from "path";
+import { INBOX_PATH, OUTBOX_PATH, ARCHIVE_PATH, ROOT } from "./paths.ts";
 import { sendTelegramMessage, pollTelegramMessages, type TelegramMessage } from "./telegram.ts";
+
+// Edith sometimes writes outbox to wrong path (~/Desktop/tony/journal/ instead of mind/journal/)
+const OUTBOX_WRONG_PATH = join(ROOT, "journal", "creator-outbox.md");
 
 export function writeMessagesToInbox(messages: TelegramMessage[]) {
   if (messages.length === 0) return;
@@ -29,9 +33,22 @@ export async function checkCreatorInbox() {
 }
 
 export async function checkCreatorOutbox() {
-  if (!existsSync(OUTBOX_PATH)) return;
+  // Check both the correct path AND the common wrong path
+  let content = "";
+  let sourcePath = OUTBOX_PATH;
 
-  const content = readFileSync(OUTBOX_PATH, "utf-8").trim();
+  if (existsSync(OUTBOX_PATH)) {
+    content = readFileSync(OUTBOX_PATH, "utf-8").trim();
+  }
+
+  if (!content && existsSync(OUTBOX_WRONG_PATH)) {
+    content = readFileSync(OUTBOX_WRONG_PATH, "utf-8").trim();
+    if (content) {
+      sourcePath = OUTBOX_WRONG_PATH;
+      console.log(`   ⚠️  Outbox found at wrong path (journal/ instead of mind/journal/) — sending anyway`);
+    }
+  }
+
   if (!content) return;
 
   console.log(`\n📨 EDITH → RANDY:\n${content}\n`);
@@ -44,7 +61,7 @@ export async function checkCreatorOutbox() {
   }
 
   appendFileSync(ARCHIVE_PATH, `\n--- ${new Date().toISOString()} ---\n${content}\n`, "utf-8");
-  Bun.write(OUTBOX_PATH, "");
+  Bun.write(sourcePath, "");
 }
 
 export function clearInbox() {
