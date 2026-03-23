@@ -61,7 +61,8 @@ async function alertRandy(message: string): Promise<void> {
 async function checkGraphitiHealth(): Promise<boolean> {
   try {
     const res = await fetch("http://localhost:8000/", { signal: AbortSignal.timeout(3000) });
-    return res.ok;
+    // Any HTTP response means the server is up (404, 307, 200 are all fine)
+    return true;
   } catch {
     return false;
   }
