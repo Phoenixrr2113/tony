@@ -5,7 +5,7 @@ import { getSchedule } from "./lib/schedule.ts";
 
 function main() {
   const schedule = getSchedule();
-  const bootDate = schedule.creature?.bootDate;
+  const bootDate = schedule.agent?.bootDate;
 
   console.log("\n🔍 Edith Status");
   console.log("─".repeat(40));
@@ -20,8 +20,11 @@ function main() {
     console.log("Born:     Not yet (never booted)");
   }
 
-  console.log(`Interval: ${schedule.heartbeat.interval}`);
-  console.log(`Active:   ${schedule.heartbeat.activeHours.start}–${schedule.heartbeat.activeHours.end} ${schedule.heartbeat.activeHours.timezone}`);
+  const activeHours = schedule.watchdog?.activeHours ?? schedule.heartbeat?.activeHours;
+  if (activeHours) {
+    console.log(`Active:   ${activeHours.start}–${activeHours.end} ${activeHours.timezone}`);
+  }
+  console.log(`Idle timeout: ${schedule.watchdog?.idleTimeoutSeconds ?? 300}s`);
 
   const today = new Date().toISOString().split("T")[0];
   const logPath = join(LOGS_DIR, `${today}.jsonl`);

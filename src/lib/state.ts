@@ -50,7 +50,7 @@ export function computeState(): string {
 
   const lastLog = getLastWakeLog();
   if (lastLog) {
-    const maxTurns = schedule.creature?.maxTurns ?? 100;
+    const maxTurns = schedule.agent?.maxTurns ?? 100;
     const parts: string[] = [];
     if (lastLog.durationSeconds !== undefined) parts.push(`${lastLog.durationSeconds}s`);
     if (lastLog.turns !== undefined) parts.push(`${lastLog.turns}/${maxTurns} turns`);

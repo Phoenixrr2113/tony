@@ -4,6 +4,7 @@ import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH, SKILLS_DIR } from "./paths.ts"
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
 import { computeState } from "./state.ts";
 import { gatherPrewakeContext } from "./prewake.ts";
+import { buildSkillIndex, formatSkillsL1 } from "./skill-index.ts";
 
 function readRootFile(name: string): string {
   const path = join(ROOT, name);
@@ -56,16 +57,12 @@ function getKnowledgeSummaries(): string {
   }
 }
 
-function getSkillsList(): string {
-  if (!existsSync(SKILLS_DIR)) return "";
-
-  const files = readdirSync(SKILLS_DIR).filter(
-    (f: string) => !f.startsWith(".") && f !== "HOW_TO_SKILLS.md"
-  );
-
-  if (files.length === 0) return "No skills created yet. See `mind/skills/HOW_TO_SKILLS.md` for how to create skills.";
-
-  return files.map((f) => `- \`mind/skills/${f}\``).join("\n");
+function getSkillsSummary(): string {
+  const entries = buildSkillIndex();
+  if (entries.length === 0) {
+    return "No skills created yet. See `mind/skills/HOW_TO_SKILLS.md` for how to create skills.";
+  }
+  return formatSkillsL1(entries);
 }
 
 export function assembleSystemPrompt(): string {
@@ -85,7 +82,7 @@ export function assembleSystemPrompt(): string {
 
 export function assembleWakeMessage(reason = "heartbeat"): string {
   const schedule = getSchedule();
-  const maxTurns = schedule.creature?.maxTurns ?? 100;
+  const maxTurns = schedule.agent?.maxTurns ?? 100;
   const template = readRootFile("WAKE_PROMPT.md");
   const bootDate = getBootDate();
   const daysAlive = getDaysAlive(bootDate);
@@ -127,9 +124,9 @@ export function assembleWakeMessage(reason = "heartbeat"): string {
     message += `\n\n---\n\n# Knowledge Base (Summaries)\n\nThese are summaries of your knowledge files. Use \`Read\` to load the full content of any file you need.\n\n${knowledge}`;
   }
 
-  const skills = getSkillsList();
+  const skills = getSkillsSummary();
   if (skills) {
-    message += `\n\n---\n\n# Available Skills\n\nYou have skills in \`mind/skills/\`. Read any skill file for details before using it. You can also create new skills.\n\n${skills}`;
+    message += `\n\n---\n\n# Available Skills\n\nYou have skills in \`mind/skills/\`. Read the full skill file before using it. You can also create new skills — see \`mind/skills/HOW_TO_SKILLS.md\`.\n\n${skills}`;
   }
 
   return message;

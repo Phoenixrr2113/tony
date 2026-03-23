@@ -15,5 +15,9 @@ export const ARCHIVE_PATH = join(LOGS_DIR, "creator-messages.log");
 export const OFFSET_PATH = join(LOGS_DIR, "telegram-offset.txt");
 export const WAKE_LOCK_PATH = join(LOGS_DIR, ".wake-lock");
 export const MEMORY_PATH = join(MIND_DIR, "MEMORY.md");
+export const SKILL_INDEX_PATH = join(SKILLS_DIR, ".skill-index.json");
+export const SESSION_STATE_PATH = join(LOGS_DIR, "session-state.json");
+export const SIGNAL_RESTART_PATH = join(MIND_DIR, ".signal-restart.json");
+export const SIGNAL_PAUSE_PATH = join(MIND_DIR, ".signal-pause.json");
 export const PREWAKE_TIMEOUT_MS = 10_000;
 

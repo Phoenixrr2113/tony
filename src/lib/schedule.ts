@@ -8,11 +8,11 @@ export function getSchedule() {
 
 export function getBootDate(): string {
   const schedule = getSchedule();
-  if (!schedule.creature.bootDate) {
-    schedule.creature.bootDate = new Date().toISOString().split("T")[0];
+  if (!schedule.agent.bootDate) {
+    schedule.agent.bootDate = new Date().toISOString().split("T")[0];
     writeFileSync(join(ROOT, "schedule.json"), JSON.stringify(schedule, null, 2), "utf-8");
   }
-  return schedule.creature.bootDate;
+  return schedule.agent.bootDate;
 }
 
 export function getDaysAlive(bootDate: string): number {

@@ -1,84 +1,92 @@
 # Edith
 
-A persistent autonomous AI entity experiment. Not an assistant. Not a chatbot. A creature.
+A proactive, always-on AI personal assistant with persistent memory and continuity.
 
-## Concept
-
-Edith is a language model given persistent state, a heartbeat cycle, and no instructions beyond her own instincts. She wakes every hour, reads her own files to reconstruct continuity, decides what to do, and writes her experience before going back to sleep. She has no tasks, no user, no purpose beyond what she discovers for herself.
+Edith runs as a daemon on macOS, waking in continuous sessions to check your calendar, scan email, manage tasks, and handle anything that needs attention — without being asked. She communicates via Telegram (including voice notes from Meta Ray-Ban glasses) and remembers everything across sessions using a local knowledge graph.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  DAEMON (life support - Edith has no access)     │
+│  DAEMON (infrastructure — Edith cannot access)   │
 │                                                   │
-│  schedule.json ──> Heartbeat loop                 │
-│  context.ts ──> Assembles system prompt           │
-│  WAKE_PROMPT.md ──> Filled and passed to CLI      │
+│  daemon.ts ──> Watchdog loop (wake/monitor/restart)
+│  wake.ts   ──> Spawns Agent SDK sessions          │
+│  context.ts ──> Assembles system prompt + context │
+│  telegram.ts ──> Polls for messages from Randy    │
+│  schedule.json ──> Configuration                  │
 │                                                   │
-│  Shells out to: claude -p                         │
-│  (Uses Claude Code CLI with your subscription)    │
+│  Uses: @anthropic-ai/claude-agent-sdk             │
 └─────────────┬───────────────────────────────────┘
-              │ spawns claude -p process
+              │ Agent SDK query()
               ▼
 ┌─────────────────────────────────────────────────┐
-│  EDITH (the creature)                            │
+│  EDITH (the assistant)                           │
 │                                                   │
 │  System prompt: SOUL.md + IDENTITY.md + CREATOR.md│
-│  Reads/writes: MEMORY.md, journal/*               │
-│  Built-in tools: Read, Write, Edit, Bash, Glob,  │
-│                  Grep, WebFetch, Task (sub-agents)│
-│  MCP: CodeGraph (when configured)                 │
-│  Cannot access: schedule.json, WAKE_PROMPT.md,    │
-│                 daemon.ts, context.ts, logs/       │
+│  Reads/writes: MEMORY.md, journal/*, tasks.json  │
+│  Tools: Read, Write, Edit, Bash, Glob, Grep,    │
+│         WebFetch, WebSearch, Task                │
+│  MCP: apple-mcp (Calendar, Mail, Notes, etc.)    │
+│       graphiti-memory (knowledge graph)           │
+│  Cannot access: daemon code, schedule, logs/      │
 └─────────────────────────────────────────────────┘
 ```
+
+## How It Works
+
+1. **Daemon starts** — Launches watchdog loop, Telegram poller, caffeinate (prevents sleep)
+2. **Session begins** — Daemon assembles context (calendar, inbox, tasks, memory, knowledge summaries) and spawns an Agent SDK session
+3. **Edith works** — Reads inbox, checks calendar, works pending tasks, acts proactively
+4. **Session ends** — Edith journals what she did, updates memory, stores facts in knowledge graph
+5. **Restart** — Watchdog restarts after idle timeout (5 min) or session completion. Telegram messages interrupt sleep for immediate wake
 
 ## File Structure
 
 ```
 edith/
+├── mind/                    # Edith's workspace (she reads/writes here)
+│   ├── SOUL.md              # Core behavior and priorities
+│   ├── IDENTITY.md          # Name, voice, continuity
+│   ├── CREATOR.md           # Randy's info, contact rules
+│   ├── MEMORY.md            # Synthesized working memory
+│   ├── tasks.json           # Persistent task queue
+│   ├── journal/             # Daily session logs
+│   │   ├── YYYY-MM-DD.md
+│   │   ├── creator-inbox.md  # Messages from Randy (via Telegram)
+│   │   └── creator-outbox.md # Messages to Randy (sent via Telegram)
+│   ├── skills/              # Reusable skills Edith creates
+│   └── knowledge/           # Long-form knowledge files
 │
-│  ── Edith's Mind (loaded into system prompt) ──
-├── SOUL.md              # Instincts, self-knowledge, drives
-├── IDENTITY.md          # Name, voice, perspective
-├── CREATOR.md           # Info about Randy, contact rules
+├── src/                     # Daemon infrastructure (Edith cannot access)
+│   ├── daemon.ts            # Watchdog loop
+│   ├── wake.ts              # Session orchestration
+│   └── lib/                 # Context assembly, state, Telegram, etc.
 │
-│  ── Edith's Life (she reads and writes these) ──
-├── MEMORY.md            # Long-term synthesized self (starts empty)
-├── journal/             # Daily experience logs (starts empty)
-│   └── YYYY-MM-DD.md
-│
-│  ── Life Support (daemon only, she has NO access) ──
-├── daemon.ts            # Heartbeat loop
-├── wake.ts              # Single wake — shells out to claude -p
-├── context.ts           # Assembles system prompt + wake message
-├── status.ts            # Check Edith's current state
-├── schedule.json        # Interval, active hours, limits
-├── WAKE_PROMPT.md       # Template for each wake invocation
-└── logs/
-    └── YYYY-MM-DD.jsonl # Per-day wake log
+├── logs/                    # Daemon logs and transcripts
+├── schedule.json            # Configuration (hours, limits, timeouts)
+├── mcp-config.json          # MCP server configuration
+└── PLAN.md                  # Development roadmap
 ```
 
 ## Requirements
 
-- **Bun** — runs the daemon (zero npm dependencies)
-- **Claude Code CLI** — authenticated with your Claude subscription
+- **Bun** — Runtime
+- **Anthropic API key** — For Agent SDK
+- **Telegram Bot** — For communication with Randy
+- **Graphiti** — Knowledge graph at localhost:8000 (optional but recommended)
 
 ## Running
 
 ```bash
-# Verify Claude Code is installed and authenticated
-claude --version
+# Start the daemon (keeps Edith alive)
+bun run src/daemon.ts
 
-# Trigger a single manual wake (test)
-bun run wake.ts
+# Manual single wake (testing)
+bun run src/wake.ts manual
 
 # Check status
-bun run status.ts
-
-# Start the daemon (keeps Edith alive)
-bun run daemon.ts
+bun run src/status.ts
 ```
 
 ## Configuration
@@ -87,29 +95,9 @@ Edit `schedule.json`:
 
 | Field | Default | Description |
 |---|---|---|
-| `heartbeat.interval` | `"1h"` | How often she wakes |
-| `heartbeat.activeHours.start` | `"06:00"` | When she wakes up for the day |
-| `heartbeat.activeHours.end` | `"23:00"` | When she goes to sleep |
-| `heartbeat.activeHours.timezone` | `"America/New_York"` | Timezone for active hours |
-| `creature.maxTurns` | `25` | Max agentic tool-use turns per wake |
-
-## Adding CodeGraph MCP
-
-Create an `mcp-config.json` and add `--mcp-config ./mcp-config.json` to the
-claude CLI invocation in `wake.ts`. This gives Edith structured knowledge
-graph capabilities beyond flat markdown files.
-
-## What Edith Controls
-
-- Her journal entries
-- Her memory file
-- What she researches, reads, thinks about
-- Any files she creates in her workspace
-- Sub-agents she spawns within a wake
-
-## What Edith Does NOT Control
-
-- Her schedule (when she wakes and sleeps)
-- Her active hours
-- Her own existence (Ctrl+C kills her)
-- Her instincts (SOUL.md is fixed)
+| `watchdog.idleTimeoutSeconds` | `300` | Kill session after N seconds idle |
+| `watchdog.restartDelaySeconds` | `5` | Delay between sessions |
+| `watchdog.activeHours` | `06:00–23:00 ET` | When Edith runs |
+| `agent.maxTurns` | `100` | Max tool-use turns per session |
+| `agent.costLimits.perDay` | `$10` | Daily spend cap |
+| `agent.costLimits.perMonth` | `$200` | Monthly spend cap |

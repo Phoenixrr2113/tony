@@ -8,7 +8,7 @@
       "timezone": "America/New_York"
     }
   },
-  "creature": {
+  "agent": {
     "name": "Edith",
     "bootDate": "2026-03-18",
     "maxTurns": 100,

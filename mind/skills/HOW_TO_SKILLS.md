@@ -2,63 +2,65 @@
 
 Skills are reusable solutions you create and maintain. They live in `mind/skills/` and persist across sessions.
 
-## What Is a Skill?
+## Skill Format
 
-A skill is a file that captures a repeatable process. It can be:
+Every skill is a markdown file with YAML frontmatter:
 
-- **A script** (`.sh`, `.ts`, `.py`) — executable automation
-- **A prompt template** (`.md`) — a structured prompt for a specific task
-- **A procedure** (`.md`) — step-by-step instructions for a complex workflow
+```markdown
+---
+name: daily-briefing
+description: Generate a morning briefing with calendar, tasks, and email summary
+trigger: First session of each day, or when Randy asks for a briefing
+---
+
+## Steps
+
+1. Check today's calendar events
+2. Review pending tasks in `mind/tasks.json`
+3. Scan recent unread emails for anything urgent
+4. Compile into a concise briefing
+5. Send to Randy via outbox if it contains actionable items
+```
+
+### Frontmatter Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Kebab-case identifier (matches filename without `.md`) |
+| `description` | Yes | One-line description of what the skill does |
+| `trigger` | Yes | When to use this skill (conditions, frequency, or keywords) |
+| `requires` | No | Dependencies: `calendar`, `email`, `graphiti`, `web`, etc. |
+| `output` | No | What the skill produces: `outbox-message`, `journal-entry`, `task`, `file`, etc. |
 
 ## Creating a Skill
 
-1. **Check first.** Before creating a skill, check if one already exists: `ls mind/skills/`
-2. **Name clearly.** Use descriptive kebab-case names: `daily-briefing.md`, `summarize-emails.sh`, `git-status-report.ts`
-3. **Document inline.** Every skill file should start with a comment or header explaining what it does, when to use it, and any requirements.
-4. **Keep it focused.** One skill = one job. Don't create monolithic multi-purpose skills.
-
-## Skill File Format
-
-### Script Skills (`.sh`, `.ts`)
-```
-#!/bin/bash
-# SKILL: daily-briefing
-# PURPOSE: Generate a morning briefing with calendar, weather, and pending tasks
-# USAGE: Run at start of first session each day
-# REQUIRES: Calendar access, internet
-
-<script body>
-```
-
-### Prompt/Procedure Skills (`.md`)
-```markdown
-# Skill: Summarize Email Thread
-
-## Purpose
-Condense a long email thread into key decisions, action items, and open questions.
-
-## When to Use
-When an email thread exceeds 10 messages or Randy asks for a summary.
-
-## Procedure
-1. Read the full thread
-2. Extract: participants, key decisions, action items (with owners), open questions
-3. Format as a concise summary
-4. Store in knowledge graph if it involves ongoing projects
-```
+1. **Check first.** Run `ls mind/skills/` — don't reinvent existing skills
+2. **Name clearly.** Use descriptive kebab-case: `summarize-emails.md`, `weekly-review.md`
+3. **Write the frontmatter.** The `trigger` field is critical — it's how you decide when to use the skill
+4. **Write the procedure.** Step-by-step instructions you can follow in future sessions. Be specific enough that you can execute it without remembering the original context
+5. **Keep it focused.** One skill = one job
 
 ## Using Skills
 
-- **Read before acting.** At the start of complex work, check if a relevant skill exists.
-- **Evolve skills.** If a skill is outdated or could be improved, update it.
-- **Delete obsolete skills.** If a skill is no longer useful, remove it.
+At the start of complex work, check if a relevant skill exists:
 
-## Naming Conventions
+```
+ls mind/skills/
+```
 
-| Type | Extension | Example |
-|------|-----------|---------|
-| Shell script | `.sh` | `check-calendar.sh` |
-| TypeScript script | `.ts` | `parse-meeting-notes.ts` |
-| Prompt template | `.md` | `summarize-thread.md` |
-| Procedure | `.md` | `weekly-review.md` |
+Read any skill that might apply. Follow its steps. If the skill is outdated, update it. If it's no longer useful, delete it.
 
+## Evolving Skills
+
+Skills should improve over time:
+- If a step is unclear when you re-read it, clarify it
+- If you discover a better approach, update the procedure
+- If a skill consistently doesn't get used, delete it
+- Add a `## Notes` section with lessons learned from using the skill
+
+## Example Skills
+
+- `daily-briefing.md` — Morning briefing with calendar + tasks + email
+- `summarize-thread.md` — Condense a long email thread into decisions, action items, open questions
+- `weekly-review.md` — End-of-week review of completed tasks, pending items, patterns noticed
+- `meeting-prep.md` — Prepare for an upcoming meeting: attendees, agenda, relevant context from knowledge graph

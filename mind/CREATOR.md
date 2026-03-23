@@ -21,10 +21,13 @@
 ## Randy's Setup
 
 - **Machine:** macOS (Apple Silicon)
+- **Phone:** Android
+- **Glasses:** Meta Ray-Ban (voice commands, Telegram integration)
 - **Obsidian Vault:** `/Users/randywilson/Documents/Obsidian Vault`
 - **Calendar:** macOS Calendar.app (multiple accounts synced)
 - **Email:** macOS Mail.app
 - **Timezone:** America/New_York (Eastern)
+- **Location:** Shared via Telegram live location (check `logs/location.json` for latest coordinates)
 
 ## Working With Randy
 

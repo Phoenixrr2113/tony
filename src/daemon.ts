@@ -1,18 +1,140 @@
-import { existsSync, readFileSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { getSchedule, isWithinActiveHours } from "./lib/schedule.ts";
 import { wake } from "./wake.ts";
 import type { WakeResult } from "./wake.ts";
 import { join } from "path";
-import { ROOT } from "./lib/paths.ts";
-import { pollTelegramMessages } from "./lib/telegram.ts";
+import { ROOT, SIGNAL_PAUSE_PATH } from "./lib/paths.ts";
+import { pollTelegramMessages, sendTelegramMessage, type TelegramMessage } from "./lib/telegram.ts";
 import { writeMessagesToInbox } from "./lib/messaging.ts";
+import { getActiveQuery, isSessionRunning } from "./lib/session.ts";
 
 const SCHEDULE_REQUEST_PATH = join(ROOT, "mind", "schedule-request.json");
 const TELEGRAM_POLL_INTERVAL_MS = 5_000;
 
+// --- Error Recovery ---
+const BACKOFF_STEPS = [5, 30, 120, 600, 1800]; // seconds: 5s → 30s → 2m → 10m → 30m
+const CONSECUTIVE_FAILURE_ALERT = 3; // alert Randy after this many
+const CIRCUIT_BREAKER_THRESHOLD = 5; // failures in 1 hour → hibernation
+const CIRCUIT_BREAKER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const HIBERNATION_CHECK_MS = 30 * 60 * 1000; // check every 30m in hibernation
+
+let consecutiveFailures = 0;
+let failureTimestamps: number[] = [];
+let isHibernating = false;
+
+function getBackoffDelay(): number {
+  const idx = Math.min(consecutiveFailures - 1, BACKOFF_STEPS.length - 1);
+  return BACKOFF_STEPS[Math.max(0, idx)];
+}
+
+function recordFailure(): void {
+  consecutiveFailures++;
+  const now = Date.now();
+  failureTimestamps.push(now);
+  // Prune old timestamps outside the window
+  failureTimestamps = failureTimestamps.filter(t => now - t < CIRCUIT_BREAKER_WINDOW_MS);
+}
+
+function resetFailures(): void {
+  consecutiveFailures = 0;
+}
+
+function shouldTripCircuitBreaker(): boolean {
+  const now = Date.now();
+  const recentFailures = failureTimestamps.filter(t => now - t < CIRCUIT_BREAKER_WINDOW_MS);
+  return recentFailures.length >= CIRCUIT_BREAKER_THRESHOLD;
+}
+
+async function alertRandy(message: string): Promise<void> {
+  console.error(`🚨 ${message}`);
+  try {
+    await sendTelegramMessage(`⚠️ *Edith Alert*\n\n${message}`);
+  } catch {
+    console.error(`   (Telegram alert failed too)`);
+  }
+}
+
+/**
+ * Check if Graphiti is reachable. If not, return a modified MCP config
+ * that excludes graphiti-memory.
+ */
+async function checkGraphitiHealth(): Promise<boolean> {
+  try {
+    const res = await fetch("http://localhost:8000/", { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function isRateLimitError(err: any): boolean {
+  const msg = String(err?.message ?? err ?? "").toLowerCase();
+  return msg.includes("rate limit") || msg.includes("429") || msg.includes("too many requests");
+}
+
+/**
+ * Inject a Telegram message into the running session via streamInput().
+ * Returns true if successfully injected, false if fallback to inbox needed.
+ */
+async function injectMessage(messages: TelegramMessage[]): Promise<boolean> {
+  const q = getActiveQuery();
+  if (!q) return false;
+
+  try {
+    const formatted = messages
+      .map((m) => `[Telegram from ${m.from} at ${m.date.toISOString()}]\n${m.text}`)
+      .join("\n\n");
+
+    // streamInput takes an AsyncIterable<SDKUserMessage>
+    async function* messageStream() {
+      yield {
+        type: "user" as const,
+        message: {
+          role: "user" as const,
+          content: formatted,
+        },
+        parent_tool_use_id: null,
+        session_id: "",
+      };
+    }
+
+    await q.streamInput(messageStream());
+    console.log(`   💉 Injected ${messages.length} message(s) into running session`);
+    return true;
+  } catch (err) {
+    console.error(`   ⚠️  streamInput failed, falling back to inbox:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 let caffeinateProc: ReturnType<typeof Bun.spawn> | null = null;
 let isWakeRunning = false;
+let isPaused = false;
 let interruptSleep: (() => void) | null = null;
+
+/** Wake-up keywords for when Edith is paused */
+const WAKE_KEYWORDS = ["wake up", "come back", "resume", "hey edith", "wake edith", "start up"];
+
+function checkPauseSignal(): boolean {
+  if (!existsSync(SIGNAL_PAUSE_PATH)) return false;
+  try {
+    const signal = JSON.parse(readFileSync(SIGNAL_PAUSE_PATH, "utf-8"));
+    if (signal.until === "resume") {
+      console.log(`⏸️  Pause signal detected — Edith going quiet until "wake up" message`);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+function consumePauseSignal(): void {
+  try { unlinkSync(SIGNAL_PAUSE_PATH); } catch {}
+}
+
+function isWakeUpMessage(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return WAKE_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 function startCaffeinate() {
   try {
@@ -61,11 +183,34 @@ async function startTelegramPoller() {
 
       console.log(`📬 ${messages.length} Telegram message(s) from Randy`);
 
-      writeMessagesToInbox(messages);
+      // When paused, only respond to wake-up messages
+      if (isPaused) {
+        const hasWakeUp = messages.some(m => isWakeUpMessage(m.text));
+        if (hasWakeUp) {
+          console.log(`   ▶️  Wake-up message detected — resuming Edith`);
+          isPaused = false;
+          writeMessagesToInbox(messages);
+        } else {
+          console.log(`   ⏸️  Edith is paused — ignoring (say "wake up" to resume)`);
+        }
+        continue;
+      }
 
-      if (isWakeRunning) {
-        console.log(`   ⏳ Edith is busy — queued to inbox for next session`);
+      if (isWakeRunning && isSessionRunning()) {
+        // Try to inject directly into running session
+        const injected = await injectMessage(messages);
+        if (!injected) {
+          // Fallback: write to inbox for current session to read
+          writeMessagesToInbox(messages);
+          console.log(`   📥 Queued to inbox (injection failed)`);
+        }
+      } else if (isWakeRunning) {
+        // Wake is running but session not yet established
+        writeMessagesToInbox(messages);
+        console.log(`   ⏳ Edith is starting up — queued to inbox`);
       } else {
+        // Edith is idle — write to inbox and trigger immediate wake
+        writeMessagesToInbox(messages);
         console.log(`   🔔 Edith is idle — triggering immediate wake`);
         if (interruptSleep) {
           interruptSleep();
@@ -86,7 +231,7 @@ async function watchdogLoop() {
   console.log(`   Idle timeout: ${wd.idleTimeoutSeconds}s`);
   console.log(`   Restart delay: ${wd.restartDelaySeconds}s`);
   console.log(`   Active: ${wd.activeHours.start}–${wd.activeHours.end} ${wd.activeHours.timezone}`);
-  console.log(`   Max turns/session: ${schedule.creature?.maxTurns ?? 100}`);
+  console.log(`   Max turns/session: ${schedule.agent?.maxTurns ?? 100}`);
   console.log(`   Memory limit: ${schedule.needs?.memoryCharLimit ?? 8000} chars\n`);
 
   startCaffeinate();
@@ -111,20 +256,82 @@ async function watchdogLoop() {
       continue;
     }
 
+    // Circuit breaker: if hibernating, check less frequently
+    if (isHibernating) {
+      console.log(`🔌 Circuit breaker: hibernating. Checking in 30m...`);
+      await Bun.sleep(HIBERNATION_CHECK_MS);
+      // Try one session to see if things are better
+      isHibernating = false;
+      console.log(`🔌 Circuit breaker: attempting recovery...`);
+    }
+
     sessionCount++;
     const reason = sessionCount === 1 ? "boot" : "watchdog-restart";
 
     console.log(`${"─".repeat(60)}`);
     console.log(`🔄 Session #${sessionCount} starting — ${new Date().toISOString()}`);
 
+    // Pre-session health checks
+    const graphitiUp = await checkGraphitiHealth();
+    if (!graphitiUp) {
+      console.log(`   ⚠️  Graphiti not reachable — will skip graphiti-memory MCP`);
+    }
+
     isWakeRunning = true;
     let result: WakeResult | null = null;
+    let wakeError: Error | null = null;
     try {
-      result = await wake(reason);
+      result = await wake(reason, { skipGraphiti: !graphitiUp });
     } catch (err) {
-      console.error("❌ Wake failed:", err instanceof Error ? err.message : err);
+      wakeError = err instanceof Error ? err : new Error(String(err));
+      console.error("❌ Wake failed:", wakeError.message);
     }
     isWakeRunning = false;
+
+    // Error recovery logic
+    if (wakeError || (result && result.exitCode !== 0 && !result.idleKilled)) {
+      recordFailure();
+      const errMsg = wakeError?.message ?? `exit code ${result?.exitCode}`;
+
+      if (isRateLimitError(wakeError)) {
+        const backoff = getBackoffDelay();
+        await alertRandy(`Rate limited. Backing off for ${backoff}s.`);
+        await Bun.sleep(backoff * 1000);
+        continue;
+      }
+
+      if (consecutiveFailures >= CONSECUTIVE_FAILURE_ALERT && consecutiveFailures === CONSECUTIVE_FAILURE_ALERT) {
+        await alertRandy(`Edith has failed ${consecutiveFailures} times in a row: ${errMsg}`);
+      }
+
+      if (shouldTripCircuitBreaker()) {
+        isHibernating = true;
+        await alertRandy(`Circuit breaker tripped (${CIRCUIT_BREAKER_THRESHOLD}+ failures in 1 hour). Hibernating — will retry every 30m.`);
+        continue;
+      }
+
+      const backoff = getBackoffDelay();
+      console.log(`⏳ Backoff: ${backoff}s (${consecutiveFailures} consecutive failure${consecutiveFailures > 1 ? "s" : ""})`);
+      await Bun.sleep(backoff * 1000);
+      continue;
+    } else {
+      // Successful session — reset failure tracking
+      if (consecutiveFailures > 0) {
+        console.log(`✅ Recovery: session succeeded after ${consecutiveFailures} failure(s)`);
+      }
+      resetFailures();
+    }
+
+    // Check if Edith wrote a pause signal during this session
+    if (checkPauseSignal()) {
+      isPaused = true;
+      consumePauseSignal();
+      console.log(`⏸️  Edith is paused. Waiting for "wake up" message via Telegram...`);
+      while (isPaused) {
+        await Bun.sleep(5_000);
+      }
+      console.log(`▶️  Edith resuming from pause`);
+    }
 
     const restartDelay = getRestartDelay(schedule.watchdog.restartDelaySeconds);
 
