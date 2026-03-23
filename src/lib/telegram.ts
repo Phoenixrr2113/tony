@@ -61,9 +61,18 @@ export type LocationUpdate = {
 };
 
 async function transcribeVoiceMessage(fileId: string, durationSec: number): Promise<string | null> {
+  // Try Groq (free Whisper), fall back to OpenAI
+  const groqKey = process.env.GROQ_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    console.log(`   🎙️  Voice message received (${durationSec}s) but no OPENAI_API_KEY set — skipping transcription`);
+
+  const sttProvider = groqKey
+    ? { key: groqKey, url: "https://api.groq.com/openai/v1/audio/transcriptions", model: "whisper-large-v3", name: "Groq" }
+    : openaiKey
+    ? { key: openaiKey, url: "https://api.openai.com/v1/audio/transcriptions", model: "whisper-1", name: "OpenAI" }
+    : null;
+
+  if (!sttProvider) {
+    console.log(`   🎙️  Voice message received (${durationSec}s) but no GROQ_API_KEY or OPENAI_API_KEY set — skipping`);
     return null;
   }
 
@@ -90,25 +99,25 @@ async function transcribeVoiceMessage(fileId: string, durationSec: number): Prom
     }
     const audioBlob = await audioRes.blob();
 
-    // Step 3: Send to Whisper API for transcription
+    // Step 3: Send to Whisper for transcription
     const formData = new FormData();
     formData.append("file", audioBlob, "voice.ogg");
-    formData.append("model", "whisper-1");
+    formData.append("model", sttProvider.model);
 
-    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    const whisperRes = await fetch(sttProvider.url, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${openaiKey}` },
+      headers: { "Authorization": `Bearer ${sttProvider.key}` },
       body: formData,
     });
 
     if (!whisperRes.ok) {
       const errText = await whisperRes.text();
-      console.error(`   ❌ Whisper transcription failed: ${whisperRes.status} ${errText}`);
+      console.error(`   ❌ ${sttProvider.name} transcription failed: ${whisperRes.status} ${errText}`);
       return null;
     }
 
     const result = (await whisperRes.json()) as { text: string };
-    console.log(`   🎙️  Transcribed ${durationSec}s voice: "${result.text.slice(0, 80)}${result.text.length > 80 ? "..." : ""}"`);
+    console.log(`   🎙️  Transcribed ${durationSec}s voice via ${sttProvider.name}: "${result.text.slice(0, 80)}${result.text.length > 80 ? "..." : ""}"`);
     return result.text;
   } catch (err) {
     console.error(`   ❌ Voice transcription error:`, err instanceof Error ? err.message : err);
