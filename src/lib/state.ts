@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { MEMORY_PATH, LOGS_DIR, JOURNAL_DIR, JOURNAL_ARCHIVE_DIR, KNOWLEDGE_DIR, INBOX_PATH, OUTBOX_PATH } from "./paths.ts";
+import { MEMORY_PATH, LOGS_DIR, JOURNAL_DIR, JOURNAL_ARCHIVE_DIR, KNOWLEDGE_DIR, INBOX_PATH, OUTBOX_PATH, LOCATION_PATH } from "./paths.ts";
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
 
 export function computeState(): string {
@@ -47,6 +47,9 @@ export function computeState(): string {
 
   const battery = getBatteryStatus();
   if (battery) lines.push(`Battery: ${battery}`);
+
+  const location = getLocationStatus();
+  if (location) lines.push(`Randy's location: ${location}`);
 
   const lastLog = getLastWakeLog();
   if (lastLog) {
@@ -102,6 +105,24 @@ function getBatteryStatus(): string | null {
     }
     if (output.includes("No battery")) return "No battery (desktop)";
     return null;
+  } catch {
+    return null;
+  }
+}
+
+function getLocationStatus(): string | null {
+  if (!existsSync(LOCATION_PATH)) return null;
+  try {
+    const loc = JSON.parse(readFileSync(LOCATION_PATH, "utf-8"));
+    const age = Math.round((Date.now() - new Date(loc.timestamp).getTime()) / 1000);
+    const ageStr = formatDuration(age);
+
+    // Check if live location has expired
+    if (loc.expiresAt && new Date(loc.expiresAt).getTime() < Date.now()) {
+      return `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)} (expired ${ageStr} ago)`;
+    }
+
+    return `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)} (${ageStr} ago)`;
   } catch {
     return null;
   }

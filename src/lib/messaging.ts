@@ -6,7 +6,10 @@ export function writeMessagesToInbox(messages: TelegramMessage[]) {
   if (messages.length === 0) return;
 
   const formatted = messages
-    .map((m) => `**${m.from}** (${m.date.toISOString()}):\n${m.text}`)
+    .map((m) => {
+      const sourceTag = m.source === "sms" ? " [SMS]" : "";
+      return `**${m.from}**${sourceTag} (${m.date.toISOString()}):\n${m.text}`;
+    })
     .join("\n\n---\n\n");
 
   const existing = existsSync(INBOX_PATH) ? readFileSync(INBOX_PATH, "utf-8").trim() : "";

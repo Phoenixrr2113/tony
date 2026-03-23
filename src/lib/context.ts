@@ -1,10 +1,11 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
-import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH, SKILLS_DIR } from "./paths.ts";
+import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH, SKILLS_DIR, TASKS_PATH } from "./paths.ts";
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
 import { computeState } from "./state.ts";
 import { gatherPrewakeContext } from "./prewake.ts";
 import { buildSkillIndex, formatSkillsL1 } from "./skill-index.ts";
+import { buildSummaries, formatSummariesForContext } from "./summarizer.ts";
 
 function readRootFile(name: string): string {
   const path = join(ROOT, name);
@@ -37,21 +38,48 @@ function getRecentJournal(): string {
 }
 
 function getKnowledgeSummaries(): string {
-  if (!existsSync(INDEX_PATH)) return "";
+  const entries = buildSummaries();
+  if (entries.length === 0) return "";
+  return formatSummariesForContext(entries);
+}
 
+interface Task {
+  id: string;
+  title: string;
+  priority: "high" | "medium" | "low";
+  status: "pending" | "in-progress" | "done";
+  created: string;
+  due?: string;
+  source?: string;
+  notes?: string;
+}
+
+function getPendingTasks(): string {
+  if (!existsSync(TASKS_PATH)) return "";
   try {
-    const entries = JSON.parse(readFileSync(INDEX_PATH, "utf-8")) as Array<{
-      id: string;
-      l0: string;
-      l1: string;
-      l2_tokens: number;
-    }>;
+    const tasks: Task[] = JSON.parse(readFileSync(TASKS_PATH, "utf-8"));
+    const pending = tasks.filter(t => t.status !== "done");
+    if (pending.length === 0) return "";
 
-    if (entries.length === 0) return "";
+    // Sort: high priority first, then by due date
+    pending.sort((a, b) => {
+      const prio = { high: 0, medium: 1, low: 2 };
+      const prioDiff = prio[a.priority] - prio[b.priority];
+      if (prioDiff !== 0) return prioDiff;
+      if (a.due && b.due) return a.due.localeCompare(b.due);
+      if (a.due) return -1;
+      if (b.due) return 1;
+      return 0;
+    });
 
-    return entries
-      .map((e) => `### ${e.id} (~${e.l2_tokens} tokens)\n\n${e.l1}`)
-      .join("\n\n---\n\n");
+    return pending.map(t => {
+      const parts = [`- **[${t.priority.toUpperCase()}]** ${t.title}`];
+      if (t.due) parts.push(`  Due: ${t.due}`);
+      if (t.status === "in-progress") parts.push(`  Status: in progress`);
+      if (t.notes) parts.push(`  Notes: ${t.notes}`);
+      if (t.source) parts.push(`  Source: ${t.source}`);
+      return parts.join("\n");
+    }).join("\n");
   } catch {
     return "";
   }
@@ -122,6 +150,11 @@ export function assembleWakeMessage(reason = "heartbeat"): string {
   const knowledge = getKnowledgeSummaries();
   if (knowledge) {
     message += `\n\n---\n\n# Knowledge Base (Summaries)\n\nThese are summaries of your knowledge files. Use \`Read\` to load the full content of any file you need.\n\n${knowledge}`;
+  }
+
+  const tasks = getPendingTasks();
+  if (tasks) {
+    message += `\n\n---\n\n# Pending Tasks\n\nThese are your tracked tasks from \`mind/tasks.json\`. Update status as you work on them. Mark done with \`status: "done"\`. Create new tasks when you notice something actionable.\n\n${tasks}`;
   }
 
   const skills = getSkillsSummary();

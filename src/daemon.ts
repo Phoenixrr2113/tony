@@ -82,7 +82,10 @@ async function injectMessage(messages: TelegramMessage[]): Promise<boolean> {
 
   try {
     const formatted = messages
-      .map((m) => `[Telegram from ${m.from} at ${m.date.toISOString()}]\n${m.text}`)
+      .map((m) => {
+        const source = m.source === "sms" ? "SMS" : "Telegram";
+        return `[${source} from ${m.from} at ${m.date.toISOString()}]\n${m.text}`;
+      })
       .join("\n\n");
 
     // streamInput takes an AsyncIterable<SDKUserMessage>

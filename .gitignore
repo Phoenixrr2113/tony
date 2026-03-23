@@ -4,3 +4,4 @@ logs/
 .tmp-system-prompt
 .env
 
+dist/

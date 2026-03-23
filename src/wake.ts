@@ -5,6 +5,7 @@ import { MIND_DIR, TRANSCRIPTS_DIR, ROOT, SESSION_STATE_PATH, SIGNAL_RESTART_PAT
 import { getSchedule } from "./lib/schedule.ts";
 import { assembleSystemPrompt, assembleWakeMessage } from "./lib/context.ts";
 import { buildIndex } from "./lib/indexer.ts";
+import { buildSummaries } from "./lib/summarizer.ts";
 import { ensureDirs, logWake } from "./lib/logger.ts";
 import { checkCreatorInbox, checkCreatorOutbox, clearInbox } from "./lib/messaging.ts";
 import { acquireLock, releaseLock } from "./lib/wakelock.ts";
@@ -111,6 +112,7 @@ async function _doWake(reason: string, opts: WakeOptions = {}): Promise<WakeResu
   await checkCreatorInbox();
 
   buildIndex();
+  buildSummaries();
 
   const schedule = getSchedule();
   const maxTurns = schedule.agent?.maxTurns ?? 100;

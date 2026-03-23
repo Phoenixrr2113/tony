@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import { OFFSET_PATH } from "./paths.ts";
+import { OFFSET_PATH, LOCATION_PATH } from "./paths.ts";
 
 function getEnv(key: string): string {
   const val = process.env[key];
@@ -49,7 +49,93 @@ export type TelegramMessage = {
   from: string;
   text: string;
   date: Date;
+  source?: "telegram" | "sms";
 };
+
+export type LocationUpdate = {
+  lat: number;
+  lng: number;
+  timestamp: string;
+  livePeriod?: number;
+  expiresAt?: string;
+};
+
+async function transcribeVoiceMessage(fileId: string, durationSec: number): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
+    console.log(`   🎙️  Voice message received (${durationSec}s) but no OPENAI_API_KEY set — skipping transcription`);
+    return null;
+  }
+
+  try {
+    // Step 1: Get file path from Telegram
+    const fileRes = await fetch(apiUrl("getFile"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_id: fileId }),
+    });
+    const fileData = (await fileRes.json()) as { ok: boolean; result?: { file_path: string } };
+    if (!fileData.ok || !fileData.result?.file_path) {
+      console.error(`   ❌ Could not get file path for voice message`);
+      return null;
+    }
+
+    // Step 2: Download the audio file
+    const token = getEnv("TELEGRAM_BOT_TOKEN");
+    const audioUrl = `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) {
+      console.error(`   ❌ Could not download voice file: ${audioRes.status}`);
+      return null;
+    }
+    const audioBlob = await audioRes.blob();
+
+    // Step 3: Send to Whisper API for transcription
+    const formData = new FormData();
+    formData.append("file", audioBlob, "voice.ogg");
+    formData.append("model", "whisper-1");
+
+    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${openaiKey}` },
+      body: formData,
+    });
+
+    if (!whisperRes.ok) {
+      const errText = await whisperRes.text();
+      console.error(`   ❌ Whisper transcription failed: ${whisperRes.status} ${errText}`);
+      return null;
+    }
+
+    const result = (await whisperRes.json()) as { text: string };
+    console.log(`   🎙️  Transcribed ${durationSec}s voice: "${result.text.slice(0, 80)}${result.text.length > 80 ? "..." : ""}"`);
+    return result.text;
+  } catch (err) {
+    console.error(`   ❌ Voice transcription error:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+function saveLocation(location: LocationUpdate): void {
+  writeFileSync(LOCATION_PATH, JSON.stringify(location, null, 2), "utf-8");
+}
+
+function handleLocationMessage(msg: any): void {
+  if (!msg?.location) return;
+  const loc = msg.location;
+  const now = new Date();
+  const update: LocationUpdate = {
+    lat: loc.latitude,
+    lng: loc.longitude,
+    timestamp: now.toISOString(),
+  };
+  if (loc.live_period) {
+    update.livePeriod = loc.live_period;
+    update.expiresAt = new Date(now.getTime() + loc.live_period * 1000).toISOString();
+  }
+  saveLocation(update);
+  console.log(`📍 Location updated: ${update.lat.toFixed(4)}, ${update.lng.toFixed(4)}${loc.live_period ? ` (live, ${loc.live_period}s)` : ""}`);
+}
 
 export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
   const chatId = getEnv("TELEGRAM_CHAT_ID");
@@ -62,7 +148,7 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       body: JSON.stringify({
         offset: offset > 0 ? offset : undefined,
         timeout: 0,
-        allowed_updates: ["message"],
+        allowed_updates: ["message", "edited_message"],
       }),
     });
 
@@ -75,12 +161,8 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       ok: boolean;
       result: Array<{
         update_id: number;
-        message?: {
-          chat: { id: number };
-          from?: { first_name?: string; username?: string };
-          text?: string;
-          date: number;
-        };
+        message?: any;
+        edited_message?: any;
       }>;
     };
 
@@ -95,19 +177,52 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       if (update.update_id >= maxOffset) {
         maxOffset = update.update_id + 1;
       }
-      const msg = update.message;
-      if (!msg?.text) continue;
-      if (String(msg.chat.id) !== chatId) continue;
+
+      // Handle both message and edited_message (live location sends edits)
+      const msg = update.message ?? update.edited_message;
+      if (!msg) continue;
+      if (String(msg.chat?.id) !== chatId) continue;
 
       if (String(msg.from?.id) !== allowedUserId) {
         console.log(`⛔ Rejected message from unknown user ${msg.from?.id} (${msg.from?.first_name ?? "?"})`);
         continue;
       }
 
+      // Handle location updates (including live location edits)
+      if (msg.location) {
+        handleLocationMessage(msg);
+        continue; // Location-only messages don't go to inbox
+      }
+
+      // Handle voice messages
+      if (msg.voice || msg.audio) {
+        const fileId = msg.voice?.file_id ?? msg.audio?.file_id;
+        const duration = msg.voice?.duration ?? msg.audio?.duration ?? 0;
+        if (fileId) {
+          const transcript = await transcribeVoiceMessage(fileId, duration);
+          if (transcript) {
+            messages.push({
+              from: msg.from?.first_name ?? msg.from?.username ?? "Unknown",
+              text: `[voice] ${transcript}`,
+              date: new Date(msg.date * 1000),
+              source: "telegram",
+            });
+            continue;
+          }
+        }
+      }
+
+      // Text messages
+      if (!msg.text) continue;
+
+      // Detect SMS forwarded from telegram-sms app
+      const isSms = msg.text.startsWith("[SMS]");
+
       messages.push({
         from: msg.from?.first_name ?? msg.from?.username ?? "Unknown",
         text: msg.text,
         date: new Date(msg.date * 1000),
+        source: isSms ? "sms" : "telegram",
       });
     }
 

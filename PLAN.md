@@ -91,24 +91,11 @@ Two knowledge systems exist:
 ### 4A: Daemon-Side Summarizer (replaces indexer)
 The daemon preprocesses markdown files into compact summaries for the context window. Runs in the daemon, not during Edith's session. This is how Randy's notes (Obsidian, knowledge files, anywhere) get surfaced to Edith without her spending turns on summarization.
 
-- [ ] **Watch directories** — Add `summarizer.watchDirs` to `schedule.json`:
-  ```json
-  "summarizer": {
-    "watchDirs": [
-      { "path": "./mind/knowledge", "label": "Knowledge" },
-      { "path": "/Users/randywilson/Documents/Obsidian Vault", "label": "Obsidian" }
-    ],
-    "outputPath": "./mind/.summaries.json",
-    "maxTotalTokens": 2000
-  }
-  ```
-- [ ] **File change detection** — Hash watched files pre-session. Only re-summarize changed files
-- [ ] **Tiered summarization**:
-  - **L0**: Filename + title (~5 tokens/file, always included)
-  - **L1**: Section headings + first key sentence (~50 tokens/file, included within budget)
-  - **L2**: Full file content (never in prompt — Edith uses `Read` if needed)
-- [ ] **Token budget** — L1 summaries capped at `maxTotalTokens`. Over budget → oldest files drop to L0
-- [ ] **Context injection** — Replace `getKnowledgeSummaries()` in `context.ts` with new summarizer output. Include source labels ("Obsidian" vs "Knowledge")
+- [x] **Watch directories** — `src/lib/summarizer.ts` reads `summarizer.watchDirs` from schedule.json. Defaults to `./mind/knowledge`
+- [x] **File change detection** — MD5 hash-based. Only rebuilds summaries.json when files change
+- [x] **Tiered summarization** — L0 (filename+title), L1 (sections+sentence), L2 (full file via Read)
+- [x] **Token budget** — L1 summaries capped at `maxTotalTokens`. Over budget → files drop to L0
+- [x] **Context injection** — `getKnowledgeSummaries()` now uses summarizer with source labels
 
 ### 4B: Obsidian Access
 No MCP needed — Obsidian vaults are just markdown on disk.
@@ -129,45 +116,19 @@ No MCP needed — Obsidian vaults are just markdown on disk.
 ### 5A: Task Queue
 Persistent task tracking across sessions.
 
-- [ ] **Task file** — `mind/tasks.json`:
-  ```json
-  [
-    {
-      "id": "uuid",
-      "title": "Check if dentist appointment is confirmed",
-      "priority": "high",
-      "status": "pending",
-      "created": "2026-03-22T10:00:00Z",
-      "due": "2026-03-23T09:00:00Z",
-      "source": "edith-proactive",
-      "notes": "Saw appointment on calendar, no confirmation email found"
-    }
-  ]
-  ```
-- [ ] **Task injection** — Daemon injects pending tasks into session context
-- [ ] **Task sources**:
-  - Edith (proactive: "noticed a meeting with no agenda")
-  - Randy via Telegram ("remind me to call the plumber")
-  - Calendar triggers (upcoming events → reminder tasks)
-- [ ] **Completion tracking** — Edith marks tasks done. Completed tasks archived after 7 days
+- [x] **Task file** — `mind/tasks.json` with priority, status, due dates, source tracking
+- [x] **Task injection** — Pending tasks injected into wake message, sorted by priority then due date
+- [x] **Task sources** — Edith creates tasks proactively, from Randy's messages, or from calendar triggers
+- [x] **Completion tracking** — SOUL.md instructs Edith to mark done and archive after 7 days
 
 ### 5B: Location Awareness
 Randy uses Android + Meta Ray-Ban glasses. Telegram live location sharing works in the background without the app open — Telegram runs a background service on Android.
 
-- [ ] **Receive location updates** — Extend `pollTelegramMessages()` to handle `location` fields on messages AND `edited_message` updates (live location sends coordinate updates as message edits). Add `"edited_message"` to `allowed_updates` in the `getUpdates` call
-- [ ] **Store location** — Write latest coordinates to `logs/location.json`:
-  ```json
-  {
-    "lat": 40.7128,
-    "lng": -74.0060,
-    "timestamp": "2026-03-22T14:30:00Z",
-    "livePeriod": 28800,
-    "expiresAt": "2026-03-22T22:30:00Z"
-  }
-  ```
-- [ ] **Inject into context** — Pre-wake adds Randy's last known location to session context: "Randy's location: 40.71, -74.01 (15 min ago)"
-- [ ] **Location-based reminders** — Edith can create tasks with a `location` field. Daemon checks proximity on each location update and alerts Edith (or sends Telegram directly) when Randy is near a reminder location
-- [ ] **Expiry reminder** — Edith tracks when live location sharing expires and messages Randy ~10 minutes before: "Location sharing expires in 10 min. Want to extend?" This way Randy never has to remember to re-share
+- [x] **Receive location updates** — `pollTelegramMessages()` handles `location` fields + `edited_message` updates. `allowed_updates` includes `"edited_message"`
+- [x] **Store location** — Writes to `logs/location.json` with lat/lng/timestamp/livePeriod/expiresAt
+- [x] **Inject into context** — `computeState()` adds Randy's location with age and expiry status
+- [ ] **Location-based reminders** — Future: Edith creates tasks with `location` field, daemon checks proximity
+- [ ] **Expiry reminder** — Future: Edith tracks live location expiry, reminds Randy to re-share
 
 ### 5C: SMS Awareness
 Randy's Android phone forwards incoming SMS to the Telegram bot using the `telegram-sms` app (open source, runs as a background service). No new daemon infrastructure needed — SMS arrives through the same Telegram pipeline as everything else.
@@ -179,9 +140,9 @@ Randy's Android phone forwards incoming SMS to the Telegram bot using the `teleg
 4. SMS messages appear in Telegram as `[SMS] From: +1234567890\nMessage text`
 
 **Daemon changes:**
-- [ ] **Tag detection** — `pollTelegramMessages()` detects `[SMS]` prefix and tags the message source as `sms` in the inbox/streamInput payload
-- [ ] **Context injection** — SMS messages included in session context with source label so Edith knows it came from SMS, not Telegram
-- [ ] **Reply path** — Edith can draft SMS replies. Daemon sends them back via Telegram to the `telegram-sms` bot, which can send outbound SMS. Alternative: Edith drafts the reply, tells Randy "Want me to send this?" and Randy confirms via glasses
+- [x] **Tag detection** — `pollTelegramMessages()` detects `[SMS]` prefix and tags `source: "sms"` on messages
+- [x] **Context injection** — SMS messages tagged with `[SMS]` in inbox and `streamInput` payloads
+- [ ] **Reply path** — Future: Edith drafts SMS replies via Telegram→telegram-sms bridge
 
 **What Edith can do with SMS:**
 - Summarize unread text threads
@@ -191,10 +152,10 @@ Randy's Android phone forwards incoming SMS to the Telegram bot using the `teleg
 - Correlate with calendar ("You got a text from Dr. Smith — your appointment is tomorrow")
 
 ### 5D: Proactive Awareness
-- [ ] **Time-aware sessions** — Inject current time (not just date) so Edith reasons about upcoming meetings
-- [ ] **Calendar proximity alerts** — Flag events starting within 60 minutes: "UPCOMING: Team standup in 28 minutes"
-- [ ] **Pattern recognition** — Surface recurring patterns: "You've had 3 dentist reminders this week — still unresolved?"
-- [ ] **Cross-source correlation** — Connect SMS, calendar, email, and location: "You got a text from the mechanic + your car appointment is at 3pm + you're 20 min away → leave by 2:30"
+- [x] **Time-aware sessions** — `computeState()` injects full local time (hour:minute, weekday, timezone)
+- [ ] **Calendar proximity alerts** — Edith should do this naturally with apple-mcp calendar tools + current time
+- [ ] **Pattern recognition** — Future: Edith uses Graphiti + task history for pattern detection
+- [ ] **Cross-source correlation** — Future: Edith connects SMS, calendar, email, location naturally
 
 ---
 
@@ -205,14 +166,12 @@ With persistent sessions + `streamInput()`, voice becomes real-time conversation
 
 **Decision: Telegram is the relay.** Glasses support "Hey Meta, send a message on Telegram" natively.
 
-- [ ] **Voice note detection** — Extend `pollTelegramMessages()` to detect `voice` and `audio` message types. Download `.ogg` via Telegram Bot API `getFile`
-- [ ] **Audio transcription** — Whisper API or Deepgram (~$0.006/min, <1s latency)
-- [ ] **Inject as message** — `streamInput()` the transcript into the running session with `[voice]` tag. Edith handles STT errors naturally (she's an LLM, garbled text is fine)
-- [ ] **TTS response** — When Edith responds to a voice message, daemon generates audio:
-  - Primary: **Cartesia Sonic 2** (~$0.015/1K chars, ~90ms latency)
-  - Fallback: text-only Telegram message
-- [ ] **Send voice reply** — Daemon sends audio as Telegram voice message via `sendVoice` API
-- [ ] **Flow**: Glasses → "Hey Meta, send Telegram message" → voice note → Daemon → STT → `streamInput()` → Edith responds → TTS → Telegram voice reply → Glasses speakers
+- [x] **Voice note detection** — `pollTelegramMessages()` handles `voice` and `audio` message types
+- [x] **Audio transcription** — Whisper API via `OPENAI_API_KEY`. Downloads .ogg from Telegram, sends to Whisper
+- [x] **Inject as message** — Transcript injected with `[voice]` prefix. Works with both inbox and `streamInput()`
+- [ ] **TTS response** — Future: Cartesia Sonic 2 for voice replies
+- [ ] **Send voice reply** — Future: `sendVoice` API for audio responses
+- [x] **Flow**: Voice note → Download → Whisper → `[voice] transcript` → Edith
 
 ### 6B: Gemini Vision Bridge (future)
 - [ ] **Gemini Live API client** — WebSocket, JPEG frames + PCM audio → scene understanding
