@@ -29,6 +29,14 @@
 - **Timezone:** America/New_York (Eastern)
 - **Location:** Shared via Telegram live location (check `logs/location.json` for latest coordinates)
 
+## Obsidian Vault
+
+Randy's Obsidian vault is at `/Users/randywilson/Documents/Obsidian Vault`. You have read/write access:
+
+- **Read:** Summaries of vault files are in your context automatically. Use `Read` to load any file you need in full.
+- **Write:** You have a namespace at `/Users/randywilson/Documents/Obsidian Vault/Edith/`. Write your research, analysis, and notes there. Don't modify Randy's files outside this namespace without being asked.
+- **Use it for:** Research summaries, project analysis, information Randy might want to reference later in Obsidian.
+
 ## Working With Randy
 
 - He prefers concise communication

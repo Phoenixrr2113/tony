@@ -3,7 +3,7 @@ import { getSchedule, isWithinActiveHours } from "./lib/schedule.ts";
 import { wake } from "./wake.ts";
 import type { WakeResult } from "./wake.ts";
 import { join } from "path";
-import { ROOT, SIGNAL_PAUSE_PATH } from "./lib/paths.ts";
+import { ROOT, SIGNAL_PAUSE_PATH, LOCATION_PATH } from "./lib/paths.ts";
 import { pollTelegramMessages, sendTelegramMessage, type TelegramMessage } from "./lib/telegram.ts";
 import { writeMessagesToInbox } from "./lib/messaging.ts";
 import { getActiveQuery, isSessionRunning } from "./lib/session.ts";
@@ -139,6 +139,29 @@ function isWakeUpMessage(text: string): boolean {
   return WAKE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+// --- Location expiry tracking ---
+let locationExpiryWarned = false;
+
+async function checkLocationExpiry(): Promise<void> {
+  if (!existsSync(LOCATION_PATH)) return;
+  try {
+    const loc = JSON.parse(readFileSync(LOCATION_PATH, "utf-8"));
+    if (!loc.expiresAt) return;
+
+    const expiresAt = new Date(loc.expiresAt).getTime();
+    const now = Date.now();
+    const minutesLeft = (expiresAt - now) / (1000 * 60);
+
+    if (minutesLeft <= 10 && minutesLeft > 0 && !locationExpiryWarned) {
+      locationExpiryWarned = true;
+      await sendTelegramMessage(`📍 Location sharing expires in ${Math.round(minutesLeft)} minutes. Want to extend?`);
+      console.log(`📍 Location expiry warning sent (${Math.round(minutesLeft)}m left)`);
+    } else if (minutesLeft > 10) {
+      locationExpiryWarned = false; // Reset so we warn again next time
+    }
+  } catch {}
+}
+
 function startCaffeinate() {
   try {
     caffeinateProc = Bun.spawn(["caffeinate", "-i"], {
@@ -179,6 +202,9 @@ async function startTelegramPoller() {
 
   while (true) {
     await Bun.sleep(TELEGRAM_POLL_INTERVAL_MS);
+
+    // Check location expiry on each poll cycle
+    await checkLocationExpiry();
 
     try {
       const messages = await pollTelegramMessages();

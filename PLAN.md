@@ -100,14 +100,14 @@ The daemon preprocesses markdown files into compact summaries for the context wi
 ### 4B: Obsidian Access
 No MCP needed — Obsidian vaults are just markdown on disk.
 
-- [ ] **Read access** — Add vault to summarizer watch dirs. Edith sees L0/L1 summaries and can `Read` any file
-- [ ] **Write access** — Add vault path to CREATOR.md. Create `Edith/` namespace for Edith-authored content
-- [ ] **Bidirectional** — Edith reads Randy's notes for context, writes analysis/research into the vault
+- [x] **Read access** — Vault added to `schedule.json` summarizer watchDirs. Edith sees L0/L1 summaries
+- [x] **Write access** — Vault path in CREATOR.md. `Edith/` namespace created for Edith-authored content
+- [x] **Bidirectional** — Edith reads Randy's notes via summaries + Read, writes to `Edith/` namespace
 
 ### 4C: Memory Hygiene
-- [ ] **Journal consolidation** — Before archiving old journals, extract key facts into Graphiti. Lightweight "consolidation session" with minimal context
-- [ ] **Memory file decay** — "Last updated" timestamp per MEMORY.md section. Stale sections (14+ days) flagged for Edith to refresh or archive
-- [ ] **Duplicate detection** — Check if MEMORY.md content already exists in Graphiti. Warn if duplicating
+- [x] **Journal consolidation** — Maintenance flags journals nearing archival in `.consolidation-needed.json`. Context injection warns Edith to extract facts into Graphiti
+- [x] **Memory file decay** — Maintenance checks MEMORY.md for "Last updated" timestamps. Sections 14+ days stale are reported in maintenance log
+- [ ] **Duplicate detection** — Future: check MEMORY.md content against Graphiti. Needs Graphiti running
 
 ---
 
@@ -128,7 +128,7 @@ Randy uses Android + Meta Ray-Ban glasses. Telegram live location sharing works 
 - [x] **Store location** — Writes to `logs/location.json` with lat/lng/timestamp/livePeriod/expiresAt
 - [x] **Inject into context** — `computeState()` adds Randy's location with age and expiry status
 - [ ] **Location-based reminders** — Future: Edith creates tasks with `location` field, daemon checks proximity
-- [ ] **Expiry reminder** — Future: Edith tracks live location expiry, reminds Randy to re-share
+- [x] **Expiry reminder** — Daemon checks `expiresAt` every 5s, sends Telegram warning 10min before expiry
 
 ### 5C: SMS Awareness
 Randy's Android phone forwards incoming SMS to the Telegram bot using the `telegram-sms` app (open source, runs as a background service). No new daemon infrastructure needed — SMS arrives through the same Telegram pipeline as everything else.
@@ -169,18 +169,11 @@ With persistent sessions + `streamInput()`, voice becomes real-time conversation
 - [x] **Voice note detection** — `pollTelegramMessages()` handles `voice` and `audio` message types
 - [x] **Audio transcription** — Whisper API via `OPENAI_API_KEY`. Downloads .ogg from Telegram, sends to Whisper
 - [x] **Inject as message** — Transcript injected with `[voice]` prefix. Works with both inbox and `streamInput()`
-- [ ] **TTS response** — Future: Cartesia Sonic 2 for voice replies
-- [ ] **Send voice reply** — Future: `sendVoice` API for audio responses
 - [x] **Flow**: Voice note → Download → Whisper → `[voice] transcript` → Edith
+- TTS not needed — Meta glasses read text responses aloud
 
-### 6B: Gemini Vision Bridge (future)
-- [ ] **Gemini Live API client** — WebSocket, JPEG frames + PCM audio → scene understanding
-- [ ] **Intent extraction** — Gemini → structured JSON → Edith via `streamInput()`
-- [ ] **Flow**: Glasses camera → Companion App → Gemini → Intent → Edith → TTS → Glasses speakers
-
-### 6C: Companion App (blocked — Meta Wearables SDK GA ~2026)
-- [ ] **React Native or Swift app** — Direct camera/mic/speaker access, skip Telegram relay
-- [ ] **Flow**: Glasses sensors → App → Gemini + Edith → TTS → Glasses speakers
+### ~~6B: Gemini Vision Bridge~~ — Removed (no camera pipeline yet)
+### ~~6C: Companion App~~ — Removed (Meta Wearables SDK not GA)
 
 ### Tech Stack
 | Component | Provider | Cost | Latency |
@@ -207,15 +200,16 @@ With persistent sessions + `streamInput()`, voice becomes real-time conversation
 
 ## Priority Order
 
-1. **Phase 3A** — `continue: true` + session continuity (one-line change, massive impact)
-2. **Phase 3B** — `streamInput()` for real-time Telegram messages
-3. **Phase 3C** — Edith handles commands via signal files (add to SOUL.md)
-4. **Phase 3D** — Error recovery & rate limit handling
-5. **Phase 3E** — Skills system + skill creator skill
-6. **Phase 4A** — Daemon-side summarizer (unlock Obsidian)
-7. **Phase 5A** — Task queue
-8. **Phase 5B** — Location awareness (Telegram live location → location-based reminders)
-9. **Phase 5C** — SMS forwarding (install telegram-sms on Android, tag detection in daemon)
-10. **Phase 6A** — Telegram voice notes (STT + TTS + `streamInput()`)
-11. **Phase 4B-4C** — Obsidian write access + memory consolidation
-12. **Phase 6B-6C** — Vision + companion app (future)
+1. ~~Phase 3A~~ ✅ — Session continuity
+2. ~~Phase 3B~~ ✅ — Real-time messaging
+3. ~~Phase 3C~~ ✅ — Signal-based commands
+4. ~~Phase 3D~~ ✅ — Error recovery
+5. ~~Phase 3E~~ ✅ — Skills system
+6. ~~Phase 4A~~ ✅ — Daemon-side summarizer
+7. ~~Phase 5A~~ ✅ — Task queue
+8. ~~Phase 5B~~ ✅ — Location awareness (core)
+9. ~~Phase 5C~~ ✅ — SMS tag detection
+10. ~~Phase 6A~~ ✅ — Voice notes (STT)
+11. **Phase 4B** — Obsidian read/write access
+12. **Phase 4C** — Memory hygiene
+13. **Phase 5B** — Location reminders + expiry (remaining items)

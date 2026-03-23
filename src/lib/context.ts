@@ -1,6 +1,8 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 import { ROOT, MIND_DIR, JOURNAL_DIR, INDEX_PATH, SKILLS_DIR, TASKS_PATH } from "./paths.ts";
+
+const CONSOLIDATION_PATH = join(MIND_DIR, ".consolidation-needed.json");
 import { getSchedule, getBootDate, getDaysAlive, getTodayWakeCount } from "./schedule.ts";
 import { computeState } from "./state.ts";
 import { gatherPrewakeContext } from "./prewake.ts";
@@ -150,6 +152,16 @@ export function assembleWakeMessage(reason = "heartbeat"): string {
   const knowledge = getKnowledgeSummaries();
   if (knowledge) {
     message += `\n\n---\n\n# Knowledge Base (Summaries)\n\nThese are summaries of your knowledge files. Use \`Read\` to load the full content of any file you need.\n\n${knowledge}`;
+  }
+
+  // Consolidation warnings
+  if (existsSync(CONSOLIDATION_PATH)) {
+    try {
+      const consolidation = JSON.parse(readFileSync(CONSOLIDATION_PATH, "utf-8"));
+      if (consolidation.files && consolidation.files.length > 0) {
+        message += `\n\n---\n\n# ⚠️ Journal Consolidation Needed\n\nThese journals will be archived soon. Read them and extract any important facts into Graphiti (via \`add_episode\`) before they leave your context:\n\n${consolidation.files.map((f: string) => `- \`journal/${f}\``).join("\n")}\n\n${consolidation.reason}`;
+      }
+    } catch {}
   }
 
   const tasks = getPendingTasks();

@@ -26,5 +26,13 @@
   "daemon": {
     "logDir": "./logs",
     "journalDir": "./journal"
+  },
+  "summarizer": {
+    "watchDirs": [
+      { "path": "./mind/knowledge", "label": "Knowledge" },
+      { "path": "/Users/randywilson/Documents/Obsidian Vault", "label": "Obsidian" }
+    ],
+    "outputPath": "./mind/.summaries.json",
+    "maxTotalTokens": 2000
   }
 }
