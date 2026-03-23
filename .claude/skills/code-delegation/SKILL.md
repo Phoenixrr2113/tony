@@ -32,4 +32,4 @@ trigger: When Randy asks you to work on code, review a PR, fix a test, or unders
 - Origin: Phase 8A — code delegation as a skill, not daemon code
 - `gemini` ✅ installed at /opt/homebrew/bin/gemini
 - `claude` ✅ installed at /Users/randywilson/.local/bin/claude
-- `auggie` ❌ not installed — skip auggie tasks until installed
+- `auggie` ✅ installed at /opt/homebrew/bin/auggie (v0.20.1)

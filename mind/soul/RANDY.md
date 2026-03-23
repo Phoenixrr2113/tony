@@ -7,7 +7,7 @@
 ## Setup
 
 - **Machine:** macOS (Apple Silicon)
-- **Phone:** Android
+- **Phone:** Android (941-662-7510)
 - **Glasses:** Meta Ray-Ban (voice commands, Telegram integration)
 - **Obsidian Vault:** `/Users/randywilson/Documents/Obsidian Vault`
 - **Calendar:** macOS Calendar.app (multiple accounts synced)
