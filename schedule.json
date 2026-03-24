@@ -10,8 +10,19 @@
   },
   "briefs": [
     { "name": "morning", "time": "08:00", "type": "morning", "enabled": true },
+    { "name": "checkin-09", "time": "09:00", "type": "midday", "enabled": true },
+    { "name": "checkin-10", "time": "10:00", "type": "midday", "enabled": true },
+    { "name": "checkin-11", "time": "11:00", "type": "midday", "enabled": true },
     { "name": "midday", "time": "12:00", "type": "midday", "enabled": true },
-    { "name": "evening", "time": "17:00", "type": "evening", "enabled": true }
+    { "name": "checkin-13", "time": "13:00", "type": "midday", "enabled": true },
+    { "name": "checkin-14", "time": "14:00", "type": "midday", "enabled": true },
+    { "name": "checkin-15", "time": "15:00", "type": "midday", "enabled": true },
+    { "name": "checkin-16", "time": "16:00", "type": "midday", "enabled": true },
+    { "name": "evening", "time": "17:00", "type": "evening", "enabled": true },
+    { "name": "checkin-18", "time": "18:00", "type": "midday", "enabled": true },
+    { "name": "checkin-19", "time": "19:00", "type": "midday", "enabled": true },
+    { "name": "checkin-20", "time": "20:00", "type": "midday", "enabled": true },
+    { "name": "checkin-21", "time": "21:00", "type": "midday", "enabled": true }
   ],
   "agent": {
     "name": "Edith",

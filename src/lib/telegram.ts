@@ -161,21 +161,32 @@ function persistMessage(entry: {
   appendFileSync(MESSAGES_LOG_PATH, line, "utf-8");
 }
 
-function handleLocationMessage(msg: any): void {
-  if (!msg?.location) return;
+// Throttle location saves — at most once per 60 seconds
+let lastLocationSaveTime = 0;
+const LOCATION_THROTTLE_MS = 60_000;
+
+/** Returns true if location was saved (throttle allowed), false if skipped */
+function handleLocationMessage(msg: any): boolean {
+  if (!msg?.location) return false;
   const loc = msg.location;
-  const now = new Date();
+  const now = Date.now();
+
+  // Throttle: skip if we saved less than 60s ago
+  if (now - lastLocationSaveTime < LOCATION_THROTTLE_MS) return false;
+
+  lastLocationSaveTime = now;
   const update: LocationUpdate = {
     lat: loc.latitude,
     lng: loc.longitude,
-    timestamp: now.toISOString(),
+    timestamp: new Date(now).toISOString(),
   };
   if (loc.live_period) {
     update.livePeriod = loc.live_period;
-    update.expiresAt = new Date(now.getTime() + loc.live_period * 1000).toISOString();
+    update.expiresAt = new Date(now + loc.live_period * 1000).toISOString();
   }
   saveLocation(update);
   console.log(`📍 Location updated: ${update.lat.toFixed(4)}, ${update.lng.toFixed(4)}${loc.live_period ? ` (live, ${loc.live_period}s)` : ""}`);
+  return true;
 }
 
 export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
@@ -236,15 +247,18 @@ export async function pollTelegramMessages(): Promise<TelegramMessage[]> {
       }
 
       // Handle location updates (including live location edits)
+      // Throttled: only persist + save at most once per 60s
       if (msg.location) {
-        persistMessage({
-          type: "location",
-          from: msg.from?.first_name ?? "Unknown",
-          text: `${msg.location.latitude},${msg.location.longitude}`,
-          timestamp: new Date(msg.date * 1000).toISOString(),
-          updateId: update.update_id,
-        });
-        handleLocationMessage(msg);
+        const saved = handleLocationMessage(msg);
+        if (saved) {
+          persistMessage({
+            type: "location",
+            from: msg.from?.first_name ?? "Unknown",
+            text: `${msg.location.latitude},${msg.location.longitude}`,
+            timestamp: new Date(msg.date * 1000).toISOString(),
+            updateId: update.update_id,
+          });
+        }
         continue; // Location-only messages don't go to inbox
       }
 
