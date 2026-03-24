@@ -85,12 +85,14 @@ async function injectMessage(messages: TelegramMessage[]): Promise<boolean> {
   if (!q) return false;
 
   try {
-    const formatted = messages
+    const body = messages
       .map((m) => {
         const source = m.source === "sms" ? "SMS" : "Telegram";
         return `[${source} from ${m.from} at ${m.date.toISOString()}]\n${m.text}`;
       })
       .join("\n\n");
+
+    const formatted = `⚡ Incoming message while you're mid-session:\n\n${body}\n\nRespond to this message, then continue what you were working on before it arrived.`;
 
     async function* messageStream() {
       yield {
