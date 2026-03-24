@@ -9,7 +9,7 @@ import { writeMessagesToInbox } from "./lib/messaging.ts";
 import { getActiveQuery, isSessionRunning } from "./lib/session.ts";
 import { getNextDueBrief, msUntilNextBrief, getTimezone, getTodayKey } from "./lib/scheduler.ts";
 import type { BriefType } from "./lib/briefs.ts";
-import { checkLocationReminders, checkTimeReminders, markFired } from "./lib/geo.ts";
+import { checkLocationReminders, checkTimeReminders, markFired, checkLocationTransitions } from "./lib/geo.ts";
 import { getUpcomingEvents, type UpcomingEvent } from "./lib/prewake.ts";
 
 const SCHEDULE_REQUEST_PATH = join(ROOT, "mind", "schedule-request.json");
@@ -238,6 +238,26 @@ async function startTelegramPoller() {
 
     await checkLocationExpiry();
     await processTriggeredReminders();
+
+    // Location transition detection — arrive/depart named locations
+    const transitions = checkLocationTransitions();
+    for (const t of transitions) {
+      const emoji = t.type === "arrived" ? "📍" : "🚗";
+      console.log(`${emoji} Randy ${t.type} ${t.locationLabel}`);
+      // Write to inbox so next brief/session sees it
+      const transMsg: TelegramMessage = {
+        from: "System",
+        text: `${emoji} Randy ${t.type === "arrived" ? "arrived at" : "left"} ${t.locationLabel}`,
+        date: new Date(),
+        source: "telegram",
+      };
+      writeMessagesToInbox([transMsg]);
+      // If Edith is idle, wake her for context (e.g. arriving home after work)
+      if (!isWakeRunning) {
+        pendingMessageWake = true;
+        if (interruptSleep) interruptSleep();
+      }
+    }
 
     // Calendar proximity check — every 15 minutes
     const now = Date.now();

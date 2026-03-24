@@ -157,3 +157,79 @@ export function markFired(ids: string[]): void {
   }
   saveReminders(reminders);
 }
+
+/**
+ * Location transition detection.
+ * Tracks which named location Randy is currently at (or null if none).
+ * Returns arrival/departure events when state changes.
+ */
+let currentLocationName: string | null = null;
+let locationInitialized = false;
+
+export interface LocationTransition {
+  type: "arrived" | "departed";
+  locationName: string;
+  locationLabel: string;
+}
+
+export function checkLocationTransitions(): LocationTransition[] {
+  const currentLoc = getCurrentLocation();
+  if (!currentLoc) return [];
+
+  const locations = loadLocations();
+  const transitions: LocationTransition[] = [];
+
+  // Find which named location Randy is at (if any)
+  let atLocation: LocationEntry | null = null;
+  for (const loc of locations) {
+    const distance = haversineMeters(currentLoc.lat, currentLoc.lng, loc.lat, loc.lon);
+    const radius = loc.radiusMeters ?? 500;
+    if (distance <= radius) {
+      atLocation = loc;
+      break;
+    }
+  }
+
+  const newName = atLocation?.name ?? null;
+
+  // First call: just initialize, don't fire transitions
+  if (!locationInitialized) {
+    currentLocationName = newName;
+    locationInitialized = true;
+    return [];
+  }
+
+  // No change
+  if (newName === currentLocationName) return [];
+
+  // Departed a named location
+  if (currentLocationName && !newName) {
+    const prev = locations.find(l => l.name === currentLocationName);
+    transitions.push({
+      type: "departed",
+      locationName: currentLocationName,
+      locationLabel: prev?.label ?? currentLocationName,
+    });
+  }
+
+  // Arrived at a named location
+  if (newName && newName !== currentLocationName) {
+    // If switching directly between two named locations, fire departure first
+    if (currentLocationName) {
+      const prev = locations.find(l => l.name === currentLocationName);
+      transitions.push({
+        type: "departed",
+        locationName: currentLocationName,
+        locationLabel: prev?.label ?? currentLocationName,
+      });
+    }
+    transitions.push({
+      type: "arrived",
+      locationName: newName,
+      locationLabel: atLocation?.label ?? newName,
+    });
+  }
+
+  currentLocationName = newName;
+  return transitions;
+}
