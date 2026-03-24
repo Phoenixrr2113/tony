@@ -127,7 +127,7 @@ function assembleFullBrief(reason: string): string {
     message += `\n\n---\n\n# Pending Tasks\n\n${tasks}`;
   }
 
-  message += `\n\n---\n\n## What To Do\n\n1. **Inbox first** — If Randy sent a message, that's highest priority.\n2. **Tasks** — Check for overdue or due-today items.\n3. **Calendar** — Any events in the next 2 hours needing prep?\n4. **Proactive** — Anything from memory or context worth following up on?\n\nIf nothing actionable — write a brief journal entry and stop.`;
+  message += `\n\n---\n\n## What To Do\n\n1. **Inbox first** — If Randy sent a message, that's highest priority.\n2. **Tasks** — Check for overdue or due-today items.\n3. **Calendar** — Any events in the next 2 hours needing prep?\n4. **Emails** — Scan for anything important Randy should know about.\n5. **Proactive** — Research Randy's world. Read his Obsidian vault. Build knowledge files. Update RANDY.md with learned preferences. Create tasks for things you notice. Think about what Randy might need before he asks.\n\nThere is always something to do. Never stop at "nothing actionable."`;
 
   return message;
 }
@@ -155,7 +155,7 @@ function assembleLightBrief(): string {
     message += `\n\n---\n\n# Pending Tasks\n\n${tasks}`;
   }
 
-  message += `\n\nCheck for new emails. Flag anything important. Update tasks.`;
+  message += `\n\n## What To Do\n\n1. **Inbox** — respond to any messages from Randy.\n2. **Emails** — scan for anything important. Summarize what matters.\n3. **Calendar** — any upcoming events Randy should prep for?\n4. **Tasks** — update status, create new ones if you notice something.\n5. **Proactive** — research, learn, build knowledge. Read Obsidian vault. Update RANDY.md. There is always something to do.`;
 
   return message;
 }
